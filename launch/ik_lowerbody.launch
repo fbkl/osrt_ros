@@ -4,8 +4,8 @@
 
         <node pkg="osrt_ros" type="OnlineLowerLimb" 	name="ik_lowerbody_node" output="screen" >
 		<!-- param name="resample_period" 		value="0.01" / -->
-		<param name="model_file" 		value="/srv/host_data/FK scaled model.osim" />
-		<!--param name="model_file" 		value="scale/model_scaled.osim" / -->
+		<!--param name="model_file" 		value="/srv/host_data/FK scaled model.osim" / -->
+		<param name="model_file" 		value="/srv/data/gait1992/scale/model_scaled.osim" />
 		<param name="imu_base_body" 		value="pelvis" />
 		<rosparam param="imu_observation_order" >['torso','pelvis','femur_r','femur_l','tibia_r','tibia_l','talus_r','talus_l']</rosparam>
 

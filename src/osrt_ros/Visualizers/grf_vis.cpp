@@ -9,6 +9,8 @@ using opensimrt_msgs::DualConstPtr;
 
 void Visualizers::GrfVis::before_vis()
 			{
+				ROS_WARN("removing actuators and initializing system here too. i shouldnt do this more than once, so please move this logic so no more copy pastes,, okay");
+
 				OpenSimRT::OpenSimUtils::removeActuators(*model);
 
 				model->initSystem();
@@ -16,27 +18,56 @@ void Visualizers::GrfVis::before_vis()
 			}
 void Visualizers::GrfVis::after_vis()
 {
-	ROS_INFO("after_vis calledi!!");
+	ROS_INFO("grf after_vis called!!");
+	bool modelOk = true;
 	rightGRFDecorator = new OpenSimRT::ForceDecorator(SimTK::Blue, 0.001, 3);
 	nh.param<std::string>("grf_right_point", right_body_name, "");
 	if (!right_body_name.empty())
+	{
 		rightGRFDecorator->setOriginByName(*model, right_body_name);
+		visualizer->addDecorationGenerator(rightGRFDecorator);
+	}
 	else
-		ROS_WARN_STREAM("grf right application point not set!");
-	visualizer->addDecorationGenerator(rightGRFDecorator);
+	{
+		ROS_ERROR_STREAM("grf right application point not set, not adding decorator!");
+		modelOk = false;
+	}
 	
 
 	leftGRFDecorator = new OpenSimRT::ForceDecorator(SimTK::Red, 0.001, 3);
 	nh.param<std::string>("grf_left_point", left_body_name, "");
 	if (!left_body_name.empty())
+	{
 		leftGRFDecorator->setOriginByName(*model, left_body_name);
+		visualizer->addDecorationGenerator(leftGRFDecorator);
+	}
 	else
-		ROS_WARN_STREAM("grf right application point not set!");
-	visualizer->addDecorationGenerator(leftGRFDecorator);
-				model->initSystem();
-	
-	//visualizer->refreshModel();
-
+	{
+		ROS_ERROR_STREAM("grf left application point not set! not adding decorator");
+		modelOk = false;
+	}
+	model->initSystem();
+	if (modelOk)
+	{
+		ROS_INFO("I think model is okay, trying to refresh visuals");
+		visualizer->refreshModel();
+		OpenSimRT::GRFMPrediction::Output grfmOutput; //hopefully starts with zeros everywhere
+		grfmOutput.left.point[0] = 0.0;
+		grfmOutput.left.point[1] = 0.0;
+		grfmOutput.left.point[2] = 0.0;
+		grfmOutput.left.force[0] = 10.0;
+		grfmOutput.left.force[1] = 1000.0;
+		grfmOutput.left.force[2] = 10.0;
+		grfmOutput.right.point[0] = 0.0;
+		grfmOutput.right.point[1] = 0.0;
+		grfmOutput.right.point[2] = 0.0;
+		grfmOutput.right.force[0] = 10.0;
+		grfmOutput.right.force[1] = 1000.0;
+		grfmOutput.right.force[2] = 10.0;
+		rightGRFDecorator->update(grfmOutput.right.point, grfmOutput.right.force);
+		leftGRFDecorator->update(grfmOutput.left.point, grfmOutput.left.force);
+	}
+	Visualizers::VisualizerCommon::after_vis();
 }
 
 void Visualizers::GrfVis::callback(const DualConstPtr &msg) {
