@@ -1,65 +1,18 @@
 # osrt\_ros
 
-## This is terribly outdated. 
-
-
-
-
+## This readme is very outdated. 
 
 Ros wrapper interface for the [OpenSimRT](https://github.com/mitkof6/OpenSimRT) project. 
 
-This is the ros nodes that should be able to run with vanilla OpenSimRT at some point. This was done to allow more easily for updates on OpenSimRT to be used in the ros wrapper version. 
+Here are the ros 1 (noetic) nodes that should be able to run with vanilla OpenSim at some point.  
 
 ## Getting started:
 
+I don't expect you to be able to run or compile this package as is.
+
 You should start with the docker https://github.com/opensimrt-ros/docker-opensimrt
 
-Branch ros.
-
-The latest version is v1.0. You shouldn't use any other version of the code. 
-
-You probably also want to be placed in your catkin\_ws/src directory:
-
-    - https://github.com/opensimrt-ros/opensimrt_msgs
-    - https://github.com/opensimrt-ros/ximu3_ros       
-    - https://github.com/opensimrt-ros/gait1992_description
-
-### Tmux scripts
-
-To show an overview of what the current implemented system is capable, there are some tmux session scripts available. Note the AR scripts also require a calibrated camera to provide image, correct TFs for the camera and the ar\_track\_alvar and ar\_test packages.
-
-#### Existing examples:
-
-- `tmux_session_ar.bash` Test ALVAR marker cube
-
-- `tmux_session_test_agrf.bash` Test acceleration based state-machine GRFM predictions  
-
-- `tmux_session_test_cgrf.bash` Test contact force based state-machine GRFM predictions
-
-- `tmux_session_test_gait1992_visuals.bash` Test URDF model
-
-- `tmux_session_test_id_agrf.bash` Test ID and acceleration based GRFM pipeline*
-
-- `tmux_session_test_id_cgrf.bash` Test ID and contact-force based GRFM pipeline*
-
-- `tmux_session_test_id_combined_agrf.bash` Test ID+SO and acceleration based GRFM pipeline*,**
-
-- `tmux_session_test_id_combined_cgrf.bash` Test ID+SO and contact-force based GRFM pipeline*,**
-
-- `tmux_session_test_single_ar_with_lowerbody.bash` Test ALVAR marker cube single input with static transforms to pelvis, lowerbody, only IK
-
-- `tmux_session_test_single_ar_with_upperbody.bash` Test ALVAR marker cube single input with static transforms to pelvis, upperbody, only IK
-
-- `tmux_session_test_single_ximu_with_lowerbody.bash` Test XIMU3 single input with static transforms to pelvis, lowerbody, only IK
-
-- `tmux_session_test_single_ximu_with_upperbody.bash` Test XIMU3 single input with static transforms to pelvis, upperbody, only IK
-
-\* Note here the filtering is still happening inside the node, so there is additional 35 samples wait until there are enough values for visualization
-
-\*\* Here the speed of the playback is reduced to 33fps as the algorithm cannot run faster on our machine. Your machine likely has different specs, so change the rate\_divider accordingly to be able to reach convergence for every frame.
-
-
-## Notes
+## Notes (attention outdated!!)
 
 ### Common node:
 
@@ -101,11 +54,3 @@ or
 We implement a dual callback, like the one used for GRFs, which calls then calls the same main function which can output results accordingly.
 
 
-## TODO:
-
-- Make sure it compiles with vanilla opensimrt
-- Remove extra unnecessary files:
-	- Make UIMU derived from IMU
-	- Standardize OnlineUpperLimb and OnlineLowerLimb to use TFs only
-- add parameters to nodes to remove dependency on INI file
-- The SO implementation is slow. One idea is to multithread it with a round-robin scheduler and then put the messages in order by timestamp with a [TimeSequencer from message\_filters] (http://wiki.ros.org/message_filters). The round-robin was not too hard to build, I wrote [an example here](https://github.com/frederico-klein/ros_tutorials/blob/noetic-devel/roscpp_tutorials/listener_long_processing_time/listener_long_processing_time.cpp)
