@@ -32,8 +32,8 @@ namespace Visualizers
 			}
 			ros::NodeHandle nh{"~"};
 			std::string modelFile, geometryPath;
-			OpenSimRT::BasicModelVisualizer *visualizer;
-			OpenSim::Model* model;	
+			OpenSimRT::BasicModelVisualizer *visualizer=nullptr;
+			OpenSim::Model* model = nullptr;	
 			int m; // 1 is upper 2 is under...
 			ros::Subscriber sub, sub_filtered;
 			Ros::Reshuffler input;
@@ -60,7 +60,9 @@ namespace Visualizers
 			void onInit() 
 			{
 				get_params();
+				model = new OpenSim::Model(modelFile);
 				
+				input.model = model;
 				Ros::SaverNode::onInit();
 				// setup model
 				input.get_labels(nh);
@@ -81,7 +83,6 @@ namespace Visualizers
 					default:
 						throw std::invalid_argument( "I can use 1, upper or 2, lower. this is hardcoded." );
 				}
-				model = new OpenSim::Model(modelFile);
 
 				nh.param<std::string>("geometry_path", geometryPath, "/srv/data/geometry_mobl");	
 				// visualizer
@@ -101,6 +102,7 @@ namespace Visualizers
 			}
 			virtual void before_vis()
 			{
+				ROS_INFO("called before vis of visualizer common, removing actuators and initializing system");
 				OpenSimRT::OpenSimUtils::removeActuators(*model);
 				model->initSystem();
 				ROS_WARN_ONCE("Not implemented for VisualizerCommon. initial setup of the thing");
@@ -108,6 +110,19 @@ namespace Visualizers
 			virtual void after_vis()
 			{
 				ROS_WARN_ONCE("Not implemented for VisualizerCommon. post-setup of the thing");
+				int i =0;
+				SimTK::Vector q(input.labels.size());
+				for (auto label:input.labels)
+				{
+					q[i]=0.0; // to show like a model, make it nicer
+					i++;
+				}
+				if (visualizer)
+				{
+					visualizer->update(q);
+				}
+				else
+					ROS_ERROR("NO VISUALIZER DEFINED");
 			}
 
 			virtual void after_callback()
