@@ -54,13 +54,13 @@ void Visualizers::GrfVis::after_vis()
 		OpenSimRT::GRFMPrediction::Output grfmOutput; //hopefully starts with zeros everywhere
 		grfmOutput.left.point[0] = 0.0;
 		grfmOutput.left.point[1] = 0.0;
-		grfmOutput.left.point[2] = 0.0;
+		grfmOutput.left.point[2] = -0.01;
 		grfmOutput.left.force[0] = 10.0;
 		grfmOutput.left.force[1] = 1000.0;
 		grfmOutput.left.force[2] = 10.0;
 		grfmOutput.right.point[0] = 0.0;
 		grfmOutput.right.point[1] = 0.0;
-		grfmOutput.right.point[2] = 0.0;
+		grfmOutput.right.point[2] = 0.01;
 		grfmOutput.right.force[0] = 10.0;
 		grfmOutput.right.force[1] = 1000.0;
 		grfmOutput.right.force[2] = 10.0;

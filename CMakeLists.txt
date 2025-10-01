@@ -11,6 +11,7 @@ find_package(OpenSim REQUIRED PATHS "${OPENSIM_HOME}"
 		simbody
 	)
 #find_package(SimTK REQUIRED)
+find_package(TinyXML2 REQUIRED)
 
 find_package(Eigen3 3.3 REQUIRED)
 
@@ -170,6 +171,7 @@ add_executable(human_publisher_mini_node src/osrt_ros/some_tfs.cpp)
 add_dependencies(human_publisher_mini_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(human_publisher_mini_node
   ${catkin_LIBRARIES}
+ tinyxml2
   ${OpenSim_LIBRARIES}
   ${opensimrt_LIBRARIES}
   osrtRosPipeline

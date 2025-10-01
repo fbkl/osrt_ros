@@ -462,6 +462,7 @@ class UIMUnode: Ros::CommonNode
 				ROS_DEBUG_STREAM("Setting up visualizer");
 				ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/");
 				visualizer = new BasicModelVisualizer(model);
+				visualizer->publish_transforms = true;
 			}
 			if(publish_filtered)
 			{
