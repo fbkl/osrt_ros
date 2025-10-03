@@ -286,8 +286,10 @@ namespace OpenSimRT {
 			SimTK::State state;
 			std::unique_ptr<DriverErasure>
 				impl; // pointer to DriverErasureBase class
-			std::map<std::string, SimTK::Rotation> imuBodiesInGround; // R_GB per body
+			std::map<std::string, SimTK::Transform> imuBodiesInGround; // R_GB per body
 			std::vector<std::string> imuBodiesObservationOrder;       // imu order
+    std_msgs::Header sameHeader;
 			SimTK::Rotation R_heading; // heading correction
+			void publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header);
 	};
 } // namespace OpenSimRT

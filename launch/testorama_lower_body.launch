@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
-	<arg name="some_frame" default="intermediate_link" />
+	<arg name="some_frame" default="imu" />
 	<arg name="freq" default="10" />
 	<arg name="ar_pelvis" default="false" />
 	<arg name="adj_inter" default="false" />
@@ -16,22 +16,22 @@
 
 	
 	<group ns="fake_imu_broadcasters">		
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="torso" args="1 0 0 0 0 0 $(arg some_frame) imu/torso   " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 0 0 0 0 0 $(arg some_frame) imu/pelvis  " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="1 0 0 0 0 0 $(arg some_frame) imu/femur_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="1 0 0 0 0 0 $(arg some_frame) imu/femur_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="1 0 0 0 0 0 $(arg some_frame) imu/tibia_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="1 0 0 0 0 0 $(arg some_frame) imu/tibia_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="1 0 0 0 0 0 $(arg some_frame) imu/talus_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="1 0 0 0 0 0 $(arg some_frame) imu/talus_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="torso" args="1 1.4 0 0 0 0 $(arg some_frame) imu/torso   " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 1.2 0 0 0 0 $(arg some_frame) imu/pelvis  " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="1 0.9 0.1 0 0 0 $(arg some_frame) imu/femur_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="1 0.9 -0.1 0 0 0 $(arg some_frame) imu/femur_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="1 0.4 0.1 0 0 0 $(arg some_frame) imu/tibia_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="1 0.4 -0.1 0 0 0 $(arg some_frame) imu/tibia_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="1 0.1 0.1 0 0 0 $(arg some_frame) imu/talus_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="1 0.1 -0.1 0 0 0 $(arg some_frame) imu/talus_l " />
 	</group>
 	<!-- torso pelvis femur_r femur_l tibia_r tibia_l talus_r talus_l -->
 
 	<!-- for these to work, we need to have the model still with markers -->
 	<group ns="fake_ar_broadcasters">
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="thorax" args="0 0 0 0 0 0  base_link ar/thorax " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="thorax" args="0 0 0 0 0 0 $(arg some_frame) ar/thorax " />
 
-		<node if="$(arg ar_pelvis)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 0 0 0 0 0  base_link ar/pelvis" />
+		<node if="$(arg ar_pelvis)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 0 0 0 0 0  $(arg some_frame) ar/pelvis" />
 	</group>
 
 

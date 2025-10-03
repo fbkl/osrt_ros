@@ -1,10 +1,10 @@
-#!/usr/env python3
+#!/usr/bin/env python3
 
 import rospy
 import roslaunch
 import rosparam
 package = 'osrt_ros'
-executable = 'human_publisher_mini_node'
+executable = 'osim_to_simple_urdf'
 node = roslaunch.core.Node(package, executable, args="/srv/host_data/fk.osim", output="log")
 
 launch = roslaunch.scriptapi.ROSLaunch()

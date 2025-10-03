@@ -99,6 +99,8 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 	// initialize system
 	state = model.initSystem();
 	model.realizePosition(state);
+		sameHeader.frame_id = "opensim_frame";
+		sameHeader.stamp = ros::Time::now();
 
 	// get default model pose body orientation in ground
 	for (const auto& label : imuBodiesObservationOrder) {
@@ -106,8 +108,12 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 		pub.push_back(nhandle.advertise<geometry_msgs::PoseArray>(label +"/imu_cal",1,true)); //latching topic
 		if ((frame = model.findComponent<OpenSim::PhysicalFrame>(label))) {
 			imuBodiesInGround[label] =
-				frame->getTransformInGround(state).R(); // R_GB
+				frame->getTransformInGround(state); // R_GB
+				publishTransform(label+"true" ,imuBodiesInGround[label], sameHeader);
+				ROS_INFO_STREAM(cyan << "going over body in ground to set initial location: " <<label<< imuBodiesInGround[label]);
 		}
+		else
+			ROS_WARN_STREAM("couldnt find physical frame for label: "<< label);
 	}
 
 	auto nh = ros::NodeHandle("~");
@@ -136,6 +142,14 @@ SimTK::Rotation
 IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		const std::string& imuDirectionAxis) {
 	bool negate = false;
+
+		geometry_msgs::TransformStamped some_tf;
+		sameHeader.stamp = ros::Time::now();
+		some_tf.header = sameHeader;
+
+
+
+
 	double angularDifference = 0.0;
 	if (!imuDirectionAxis.empty() && !baseImuName.empty()) {
 		// set coordinate direction based on given imu direction axis given as
@@ -194,7 +208,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		//is y the vertical?
 		//
-		ROS_INFO_STREAM("baseSegmentXheading with every component" << baseSegmentXheading);
+		ROS_INFO_STREAM("baseSegmentXheading with every component::" << baseSegmentXheading);
 		//I don't know the right way of doing this
 		baseSegmentXheading.set(1, 0); //IS this it?
 		auto new_vec = baseSegmentXheading.normalize();
@@ -202,7 +216,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		baseSegmentXheading.set(1,new_vec.get(1));
 		baseSegmentXheading.set(2,new_vec.get(2));
 
-		ROS_INFO_STREAM("baseSegmentXheading with what i think is the vertical component set to zero" << baseSegmentXheading);
+		ROS_INFO_STREAM("baseSegmentXheading with what i think is the vertical component set to zero::" << baseSegmentXheading);
 		// get frame of imu body
 		const PhysicalFrame* baseFrame = nullptr;
 		if (!(baseFrame = model.findComponent<PhysicalFrame>(baseImuName))) {
@@ -215,6 +229,10 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		const SimTK::Transform& baseXForm =
 			baseFrame->getTransformInGround(state);
 		Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
+		
+		sameHeader.stamp = ros::Time::now();
+		publishTransform("opensim_real_base", baseXForm, sameHeader);
+
 
 		ROS_WARN_STREAM("baseFrameXInGround" << baseFrameXInGround);
 
@@ -259,19 +277,70 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 	return R_heading;
 }
 
+geometry_msgs::Quaternion getAsRosQuaternion(const SimTK::Rotation& R)
+{
+	Quaternion rotation = R.convertRotationToQuaternion();
+	geometry_msgs::Quaternion _rotation;
+			_rotation.w = rotation[0];
+			_rotation.x = rotation[1];
+			_rotation.y = rotation[2];
+			_rotation.z = rotation[3];
+	return _rotation;
+
+}
+
+geometry_msgs::Vector3 getAsRosVec3(const Vec3& translation)
+{
+	geometry_msgs::Vector3 _translation;
+			_translation.x = translation[0];
+			_translation.y = translation[1];
+			_translation.z = translation[2];
+	return _translation;
+
+
+}
+
+geometry_msgs::Transform getAsRosTF(const Transform& X_GB)
+{
+	Vec3 translation = X_GB.p();
+	SimTK::Rotation R = X_GB.R();
+	geometry_msgs::Transform _tf;
+	_tf.translation = getAsRosVec3(translation);
+	_tf.rotation = getAsRosQuaternion(R);
+	return _tf;
+}
+
+void IMUCalibrator::publishTransform(const std::string name, const Transform X_GB, const std_msgs::Header& header)
+{
+	geometry_msgs::Transform _tf = getAsRosTF(X_GB);
+
+	geometry_msgs::TransformStamped _tfs;
+	_tfs.header = header;
+	_tfs.child_frame_id = name;
+	_tfs.transform = _tf;
+
+	tb.sendTransform(_tfs);
+}
 
 void IMUCalibrator::calibrateIMUTasks(
 		vector<InverseKinematics::IMUTask>& imuTasks) {
+	sameHeader.stamp = ros::Time::now();
 	for (size_t i = 0; i < staticPoseQuaternions.size(); ++i) {
 		ROS_DEBUG_STREAM(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 		const auto& bodyName = imuTasks[i].body;
 
 		const auto& q0 = staticPoseQuaternions[i]; //TODO:: maybe make this come from TF directly?
 
+		Vec3  myVec = imuBodiesInGround[bodyName].p();
+		Vec3 myVec2 = myVec;
+		myVec2[0]+=0.2;
 		//const auto Corrected_Q0 = ~Rotation(q0);
 		//ROS_DEBUG_STREAM("Corrected_Q0 orientation matrix:" << bodyName << "\n" << Corrected_Q0);
 
 		const auto R0 = R_GoGi1 * Rotation(q0);
+		Transform TT(R0, myVec) ;
+
+		publishTransform(bodyName+"R0", TT, sameHeader);
 
 		ROS_DEBUG_STREAM("R0 orientation matrix:" << bodyName << "\n" << R0);
 
@@ -279,9 +348,11 @@ void IMUCalibrator::calibrateIMUTasks(
 
 		//if (i==baseBodyIndex)
 		RR = R_heading; //maybe this should be calculated per imu?
-		const auto R_BS = RR * ~imuBodiesInGround[bodyName] * R0; // ~R_GB * R_GO
+		const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName]* RR * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName] * R0; // ~R_GB * R_GO
+		Transform TT_BS(R_BS, myVec2) ;
+		publishTransform(bodyName+"BS", TT_BS, sameHeader);
 
 
 		ROS_DEBUG_STREAM("Fully corrected orientation matrix:" << bodyName << "\n" << R_BS);
