@@ -25,9 +25,8 @@
  */
 #pragma once
 
-#include "InputDriver.h"
 #include "InverseKinematics.h"
-//#include "U?->NGIMUInputDriver.h"
+#include "UIMUInputDriver.h"
 #include "Utils.h"
 #include "ros/service_client.h"
 #include "std_srvs/Empty.h"
@@ -47,7 +46,7 @@ namespace OpenSimRT {
 
 	class autosrv
 	{
-	public:
+		public:
 			ros::ServiceClient calib_client;
 			void calib()
 			{
@@ -92,7 +91,7 @@ namespace OpenSimRT {
 			bool send_start_signal_to_external_heading_calibrator = false;
 			long baseBodyIndex;
 			//std::vector<ros::Subscriber> avg_pose_subs;
-			
+
 			SimTK::Quaternion getAvgQuaternionFromTopics(std::string imu_name);
 			SimTK::Quaternion getAvgQuaternionFromTF(std::string imu_resolved_name);
 
@@ -107,15 +106,14 @@ namespace OpenSimRT {
 			 * is that the IMUData type of the driver MUST have a member function
 			 * `getQuaternion()` to receive quaternion estimations for each IMU sensor.
 			 */
-			template <typename T>
-				IMUCalibrator(const OpenSim::Model& otherModel,
-						const InputDriver<T>* const driver,
-						const std::vector<std::string>& observationOrder)
+			IMUCalibrator(const OpenSim::Model& otherModel,
+					const UIMUInputDriver* const driver,
+					const std::vector<std::string>& observationOrder)
 				// instantiate the DriverErasure object by forwarding the input
 				// driver in its contructor.
 				: tfListener(tfBuffer), model(*otherModel.clone()),
-				impl(new DriverErasure<T>(
-							std::forward<const InputDriver<T>* const>(driver))) {
+				impl(new DriverErasure(
+							std::forward<const UIMUInputDriver* const>(driver))) {
 					setup(observationOrder);
 				}
 
@@ -154,22 +152,21 @@ namespace OpenSimRT {
 			 */
 			void publishCalibrationData();
 			void computeAvgStaticPoseCommon();
-			template <typename T>
-				SimTK::Array_<SimTK::Rotation> transform(const std::vector<T>& imuData) {
-					long i=0;
-					SimTK::Array_<SimTK::Rotation> imuObservations;
-					for (const auto& data : imuData) {
-						const auto& q = data.getQuaternion();
-						SimTK::Rotation R;
-						//if (i == baseBodyIndex)
-							R = R_heading *R_GoGi1* SimTK::Rotation(q);
-						//else
-						//	R = R_GoGi1 * ~SimTK::Rotation(q);
-						imuObservations.push_back(R);
-						i++;
-					}
-					return imuObservations;
+			SimTK::Array_<SimTK::Rotation> transform(const std::vector<UIMUData>& imuData) {
+				long i=0;
+				SimTK::Array_<SimTK::Rotation> imuObservations;
+				for (const auto& data : imuData) {
+					const auto& q = data.getQuaternion();
+					SimTK::Rotation R;
+					//if (i == baseBodyIndex)
+					R = R_heading *R_GoGi1* SimTK::Rotation(q);
+					//else
+					//	R = R_GoGi1 * ~SimTK::Rotation(q);
+					imuObservations.push_back(R);
+					i++;
 				}
+				return imuObservations;
+			}
 			SimTK::Rotation R_GoGi1;    // ground-to-ground transformation
 
 		private:
@@ -193,24 +190,24 @@ namespace OpenSimRT {
 			 * deduction of the driver's IMUData type `<T>`, allows any Input driver to be
 			 * passed in the constructor.
 			 */
-			template <typename T> class DriverErasure : public DriverErasureBase {
+			class DriverErasure : public DriverErasureBase {
 				public:
-					DriverErasure(const InputDriver<T>* const driver) : m_driver(driver) {
+					DriverErasure(const UIMUInputDriver* const driver) : m_driver(driver) {
 					}
 					virtual std::vector<std::vector<SimTK::Quaternion>> getTableData() override
 					{
-					         std::vector<std::vector<SimTK::Quaternion>> table;
+						std::vector<std::vector<SimTK::Quaternion>> table;
 						int n = initIMUDataTable.size();    // num of recorded frames
 						int m = initIMUDataTable[0].size(); // num of imu devices
-							for (int j = 0; j< m ; ++j)
-							{
-								std::vector<SimTK::Quaternion> thisImuTable;
-								for (int i = 0; i< n; ++i)
-								{	
-									thisImuTable.push_back(initIMUDataTable[i][j].getQuaternion());
-								}
-								table.push_back(thisImuTable);
-							}	
+						for (int j = 0; j< m ; ++j)
+						{
+							std::vector<SimTK::Quaternion> thisImuTable;
+							for (int i = 0; i< n; ++i)
+							{	
+								thisImuTable.push_back(initIMUDataTable[i][j].getQuaternion());
+							}
+							table.push_back(thisImuTable);
+						}	
 						return table;
 					}
 					virtual void recordTime(const double& timeout) override {
@@ -254,10 +251,10 @@ namespace OpenSimRT {
 						auto avgQuaternionErrors =
 							std::vector<SimTK::Quaternion>(m, SimTK::Quaternion());
 						auto avgQuaternions(avgQuaternionErrors);
-						
-							ROS_INFO_STREAM("OLD: Using norm average of rotations");
 
-			
+						ROS_INFO_STREAM("OLD: Using norm average of rotations");
+
+
 
 						// Quaternion product for each imu
 						for (int j = 0; j < m; ++j)
@@ -292,8 +289,8 @@ namespace OpenSimRT {
 						initIMUDataTable.clear();
 					}
 				private:
-					SimTK::ReferencePtr<const InputDriver<T>> m_driver;
-					std::vector<std::vector<T>> initIMUDataTable;
+					SimTK::ReferencePtr<const UIMUInputDriver> m_driver;
+					std::vector<std::vector<UIMUData>> initIMUDataTable;
 			};
 
 			/**

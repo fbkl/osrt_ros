@@ -25,24 +25,29 @@
  * @author Filip Konstantinos <filip.k@ece.upatras.gr>
  */
 #pragma once
-#include "InputDriver.h"
 #include "UIMUData.h"
 #include <Common/TimeSeriesTable.h>
 #include <condition_variable>
 #include <thread>
 #include "OrientationProvider.h"
 #include <vector>
+#include "CircularBuffer.h"
+
+#include <map>
+#define CIRCULAR_BUFFER_SIZE 1
 
 namespace OpenSimRT {
+template <typename T> class ListenerAdapter;
 
 /**
  * @brief xio NGIMU Input driver for streaming data from file.
  */
-class  UIMUInputDriver : public InputDriver<UIMUData> {
+class  UIMUInputDriver {
+    friend class ListenerAdapter<UIMUData>;
  public:
     /**
-     * Create a NGIMU driver that streams data from file at a constant rate.
      */
+    using IMUDataList = std::vector<UIMUData>;
     UIMUInputDriver(const double& sendRate = 5);
     UIMUInputDriver(const int port,
                              const double& sendRate);
@@ -53,7 +58,7 @@ class  UIMUInputDriver : public InputDriver<UIMUData> {
      * Implements the startListening of the base class. Create a thread that
      * streams the data from file at a constant rate.
      */
-    virtual void startListening() override;
+    virtual void startListening();
 
     /**
      * Determine if the stream from file has ended.
@@ -69,7 +74,7 @@ class  UIMUInputDriver : public InputDriver<UIMUData> {
      * Get data from file as a list of UIMUData. Implements the stopListening
      * of the base class.
      */
-    virtual IMUDataList getData() const override;
+    virtual IMUDataList getData() const;
 
     /**
      * Get data from file as a std::pair containing the time and all the sensor
@@ -98,13 +103,20 @@ class  UIMUInputDriver : public InputDriver<UIMUData> {
     std::vector<std::string> imu_names;
 
  protected:
-    /**
-     * Reconstruct a list of NGIMU from a SimTK::Vector.
-     */
     IMUDataList fromVector(const SimTK::Vector&) const;
 
     // hide it from public since it does nothing
-    void stopListening() override {}
+    void stopListening() {}
+    /**
+     */
+    std::vector<std::shared_ptr<ListenerAdapter<UIMUData>>> listeners;
+
+    /**
+     * A map with thread-safe buffers to store IMU data from each port.
+     */
+    mutable std::map<int,
+                     std::unique_ptr<CircularBuffer<CIRCULAR_BUFFER_SIZE, UIMUData>>>
+            buffer;
 
  private:
    //OpenSim::TimeSeriesTable table;
