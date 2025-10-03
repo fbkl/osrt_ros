@@ -167,9 +167,9 @@ target_link_libraries(custom_joints_node
   osrtRosPipeline
 )
 
-add_executable(human_publisher_mini_node src/osrt_ros/some_tfs.cpp)
-add_dependencies(human_publisher_mini_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(human_publisher_mini_node
+add_executable(osim_to_simple_urdf src/osrt_ros/osim_to_simple_urdf.cpp)
+add_dependencies(osim_to_simple_urdf ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(osim_to_simple_urdf
   ${catkin_LIBRARIES}
  tinyxml2
   ${OpenSim_LIBRARIES}

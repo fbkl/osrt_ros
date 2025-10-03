@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+	<arg name="some_frame" default="intermediate_link" />
+	<arg name="freq" default="10" />
+	<arg name="ar_pelvis" default="false" />
+	<arg name="adj_inter" default="false" />
+	<!-- static move-->
+	<arg name="static" default="false"/>
+	<arg if="$(arg static)" name="node_pkg" value="tf2_ros" />
+	<arg if="$(arg static)" name="node_type" value="static_transform_publisher" />
+	<arg unless="$(arg static)"   name="node_pkg" value="ar_test" />
+	<arg unless="$(arg static)"   name="node_type" value="modifiable_fixed_transform_publisher.py" />
+
+
+
+
+	
+	<group ns="fake_imu_broadcasters">		
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="torso" args="1 0 0 0 0 0 $(arg some_frame) imu/torso   " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 0 0 0 0 0 $(arg some_frame) imu/pelvis  " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="1 0 0 0 0 0 $(arg some_frame) imu/femur_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="1 0 0 0 0 0 $(arg some_frame) imu/femur_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="1 0 0 0 0 0 $(arg some_frame) imu/tibia_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="1 0 0 0 0 0 $(arg some_frame) imu/tibia_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="1 0 0 0 0 0 $(arg some_frame) imu/talus_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="1 0 0 0 0 0 $(arg some_frame) imu/talus_l " />
+	</group>
+	<!-- torso pelvis femur_r femur_l tibia_r tibia_l talus_r talus_l -->
+
+	<!-- for these to work, we need to have the model still with markers -->
+	<group ns="fake_ar_broadcasters">
+		<node pkg="tf" type="static_transform_publisher" name="link9_broadcaster" args="0 0 0 0 0 0  base_link ar/thorax $(arg freq)" />
+
+		<node if="$(arg ar_pelvis)" pkg="tf" type="$(arg node_type)" name="link10_broadcaster" args="1 0 0 0 0 0  base_link ar/pelvis $(arg freq)" />
+	</group>
+
+
+	<group ns="essential_tf_broadcasters">
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="link0_broadcaster" args="0 0 0  0 0 0  map world   " />
+
+		<!-- I haven't derived this, but I have made the movable node show me all possible transformations that look right, and there are only 4! so we inspect them one by one -->
+		<!--node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->
+		<!-- node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster2" args="0 0 0  0.5 0.5 0.5 0.5 map opensim_frame   " / -->
+		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="0 0 0  0 0.707 0.707 0 map opensim_frame   " />
+		<!--node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster4" args="0 0 0  -0.5 0.5 0.5 -0.5 map opensim_frame   " / -->
+	</group>
+
+
+	<node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 0.707 0.707 base_link intermediate_link " />
+
+
+
+
+
+
+</launch>
+
