@@ -175,27 +175,11 @@ namespace OpenSimRT {
 			 * Type erasure on imu InputDriver types. Base class. Provides an interface
 			 * for the functionality of derived classes.
 			 */
-			class DriverErasureBase {
-				public:
-					virtual ~DriverErasureBase() = default;
-					virtual void recordTime(const double& timeout) = 0;
-					virtual void recordNumOfSamples(const size_t& numSamples) = 0;
-					virtual std::vector<std::vector<SimTK::Quaternion>> getTableData() = 0;
-					virtual std::vector<SimTK::Quaternion> computeAvgStaticPose() = 0;
-					virtual void clearCalibration() = 0;
-			};
-
-			/**
-			 * Type erasure on imu InputDriver types. Erasure class. Automatic type
-			 * deduction of the driver's IMUData type `<T>`, allows any Input driver to be
-			 * passed in the constructor.
-			 */
-			class DriverErasure : public DriverErasureBase {
+			class DriverErasure {
 				public:
 					DriverErasure(const UIMUInputDriver* const driver) : m_driver(driver) {
 					}
-					virtual std::vector<std::vector<SimTK::Quaternion>> getTableData() override
-					{
+					virtual std::vector<std::vector<SimTK::Quaternion>> getTableData() {
 						std::vector<std::vector<SimTK::Quaternion>> table;
 						int n = initIMUDataTable.size();    // num of recorded frames
 						int m = initIMUDataTable[0].size(); // num of imu devices
@@ -210,7 +194,7 @@ namespace OpenSimRT {
 						}	
 						return table;
 					}
-					virtual void recordTime(const double& timeout) override {
+					virtual void recordTime(const double& timeout)  {
 						initIMUDataTable.clear(); // if you want to do something fancy, remove this and then just create another service to allow to record multiple calibrations, for instance. no idea if this makes any sense though.
 						std::cout << "Recording Static Pose..." << std::endl;
 						const auto start = std::chrono::steady_clock::now();
@@ -223,7 +207,7 @@ namespace OpenSimRT {
 						}
 					}
 
-					virtual void recordNumOfSamples(const size_t& numSamples) override {
+					virtual void recordNumOfSamples(const size_t& numSamples)  {
 						initIMUDataTable.clear();
 						std::cout << "Recording Static Pose..." << std::endl;
 						size_t i = 0;
@@ -245,7 +229,7 @@ namespace OpenSimRT {
 					 * Source:
 					 * https://math.stackexchange.com/questions/1984608/average-of-3d-rotations
 					 */
-					virtual std::vector<SimTK::Quaternion> computeAvgStaticPose() override {
+					virtual std::vector<SimTK::Quaternion> computeAvgStaticPose()  {
 						int n = initIMUDataTable.size();    // num of recorded frames
 						int m = initIMUDataTable[0].size(); // num of imu devices
 						auto avgQuaternionErrors =
@@ -284,7 +268,7 @@ namespace OpenSimRT {
 
 						return avgQuaternions;
 					}
-					virtual void clearCalibration() override 
+					virtual void clearCalibration()  
 					{
 						initIMUDataTable.clear();
 					}
@@ -300,7 +284,7 @@ namespace OpenSimRT {
 
 			OpenSim::Model model;
 			SimTK::State state;
-			std::unique_ptr<DriverErasureBase>
+			std::unique_ptr<DriverErasure>
 				impl; // pointer to DriverErasureBase class
 			std::map<std::string, SimTK::Rotation> imuBodiesInGround; // R_GB per body
 			std::vector<std::string> imuBodiesObservationOrder;       // imu order
