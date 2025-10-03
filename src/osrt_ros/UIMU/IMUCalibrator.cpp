@@ -497,7 +497,7 @@ void IMUCalibrator::computeAvgStaticPoseCommon()
 {
 	std::string the_method;
 	string tf_prefix;
-	nhandle.param<string>("the_method",the_method,"");
+	nhandle.param<string>("the_method",the_method,"old");
 	ROS_INFO_STREAM("Now calculating average static pose");
 	switch(hash_djb2a(the_method)) {
 		case "old"_sh:

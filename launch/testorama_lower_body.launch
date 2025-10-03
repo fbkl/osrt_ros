@@ -5,7 +5,7 @@
 	<arg name="ar_pelvis" default="false" />
 	<arg name="adj_inter" default="false" />
 	<!-- static move-->
-	<arg name="static" default="false"/>
+	<arg name="static" default="true"/>
 	<arg if="$(arg static)" name="node_pkg" value="tf2_ros" />
 	<arg if="$(arg static)" name="node_type" value="static_transform_publisher" />
 	<arg unless="$(arg static)"   name="node_pkg" value="ar_test" />
@@ -29,9 +29,9 @@
 
 	<!-- for these to work, we need to have the model still with markers -->
 	<group ns="fake_ar_broadcasters">
-		<node pkg="tf" type="static_transform_publisher" name="link9_broadcaster" args="0 0 0 0 0 0  base_link ar/thorax $(arg freq)" />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="thorax" args="0 0 0 0 0 0  base_link ar/thorax " />
 
-		<node if="$(arg ar_pelvis)" pkg="tf" type="$(arg node_type)" name="link10_broadcaster" args="1 0 0 0 0 0  base_link ar/pelvis $(arg freq)" />
+		<node if="$(arg ar_pelvis)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 0 0 0 0 0  base_link ar/pelvis" />
 	</group>
 
 
