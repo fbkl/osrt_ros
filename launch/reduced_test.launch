@@ -41,7 +41,7 @@
 		<arg name="ioption4" value = "-0.5    0.5   -0.5    0.5  "/>
 		<arg name="ioption5" value = " 0.707  0      0.707  0    "/>
 		<arg name="ioption6" value = " 0.5  0.5      -0.5  -0.5   "/>
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) opensim_frame imu_ref_ori " output="screen"/>
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption6) map imu_ref_ori " output="screen"/>
 
 
 		<!-- option 2 looks the closest to the osim visualization-->
@@ -50,7 +50,7 @@
 		<arg name="ooption2" value = " 0.5    0.5    0.5    0.5  "/>
 		<arg name="ooption3" value = " 0      0.707  0.707  0    "/>
 		<arg name="ooption4" value = "-0.5    0.5    0.5   -0.5  "/>
-		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   " />
+		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption1) map opensim_frame   " />
 
 		<!-- I haven't derived this, but I have made the movable node show me all possible transformations that look right, and there are only 4! so we inspect them one by one -->
 		<!-- node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->

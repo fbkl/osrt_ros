@@ -141,13 +141,13 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationSeq(const double& xDegrees,
 SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfname)
 {
 	Quaternion q;
-	if (false)
+	if (true)
 	{
 	geometry_msgs::TransformStamped standard_imu_orientation_tf;
 
 	try{
 		// target frame, source frame!!!
-		standard_imu_orientation_tf = tfBuffer.lookupTransform("imu_ref_ori", "map", ros::Time(0));
+		standard_imu_orientation_tf = tfBuffer.lookupTransform("imu_ref_ori", "opensim_frame", ros::Time(0));
 		//coult it be an inverse transform_????
 		// doesnt look likeit
 		//standard_imu_orientation_tf = tfBuffer.lookupTransform("map", "imu_ref_ori", ros::Time(0));	

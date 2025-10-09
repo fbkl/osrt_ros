@@ -84,8 +84,8 @@ void TfServer::readTransform(std::string tf_name)
 	tf::StampedTransform transform;
 	try{
 		//listener.waitForTransform(tf_name, world_tf_reference, ros::Time(0), ros::Duration(3.0));
-		//listener.lookupTransform(world_tf_reference, tf_name, ros::Time(0), transform); // this would give OpenSim the raw quaternions, however, it seems to be incorrect as it is not possible to find the correct R matrix to put all the axis in the correct orientation. To solve this we either changed the order of some vectors or inverted w.
-		listener.lookupTransform(tf_name, world_tf_reference, ros::Time(0), transform); //flipped, new attempt to try to avoid -w
+		listener.lookupTransform(world_tf_reference, tf_name, ros::Time(0), transform); // this would give OpenSim the raw quaternions, however, it seems to be incorrect as it is not possible to find the correct R matrix to put all the axis in the correct orientation. To solve this we either changed the order of some vectors or inverted w.
+		//listener.lookupTransform(tf_name, world_tf_reference, ros::Time(0), transform); //flipped, new attempt to try to avoid -w
 	}
 	catch (tf::TransformException& ex){
 		ROS_ERROR_THROTTLE(5,"TFServer: Orientation: Transform exception! %s",ex.what());
