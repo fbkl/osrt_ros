@@ -117,6 +117,7 @@ namespace OpenSimRT {
 					setup(observationOrder);
 				}
 
+			SimTK::Rotation setGroundOrientationFromTF(const std::string& tfname);
 			/**
 			 * Set the rotation sequence of the axes (in degrees) that form the
 			 * transformation between the sensor's reference frame and the OpenSim's
@@ -168,15 +169,26 @@ namespace OpenSimRT {
 				return imuObservations;
 			}
 			SimTK::Rotation R_GoGi1;    // ground-to-ground transformation
+			void publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header);
+    			std_msgs::Header sameHeader;
+		
 
 		private:
 			bool externalAveragingMethod = false;
 			/**
 			 * Type erasure on imu InputDriver types. Base class. Provides an interface
 			 * for the functionality of derived classes.
+			 *
+			 *TODO: IHATETHISSOMUCH!!!! REMOVE
+			 *
 			 */
 			class DriverErasure {
 				public:
+					/* some logic for checking if calibration data was received! */
+					std::mutex calibration_mtx;
+					std::condition_variable cv_calibration_done;
+					bool data_ready = false;
+
 					DriverErasure(const UIMUInputDriver* const driver) : m_driver(driver) {
 					}
 					virtual std::vector<std::vector<SimTK::Quaternion>> getTableData() {
@@ -195,29 +207,43 @@ namespace OpenSimRT {
 						return table;
 					}
 					virtual void recordTime(const double& timeout)  {
-						initIMUDataTable.clear(); // if you want to do something fancy, remove this and then just create another service to allow to record multiple calibrations, for instance. no idea if this makes any sense though.
-						std::cout << "Recording Static Pose..." << std::endl;
-						const auto start = std::chrono::steady_clock::now();
-						while (std::chrono::duration_cast<std::chrono::seconds>(
+						{
+							std::lock_guard<std::mutex> lock(calibration_mtx);
+							initIMUDataTable.clear(); // if you want to do something fancy, remove this and then just create another service to allow to record multiple calibrations, for instance. no idea if this makes any sense though.
+							std::cout << "Recording Static Pose..." << std::endl;
+							const auto start = std::chrono::steady_clock::now();
+							while (std::chrono::duration_cast<std::chrono::seconds>(
 									std::chrono::steady_clock::now() - start)
 								.count() < timeout) {
 							// get frame measurements. `getData()` is common to all input
 							// drivers
-							initIMUDataTable.push_back(m_driver->getData());
+								initIMUDataTable.push_back(m_driver->getData());
+							}
+							data_ready = true;
 						}
+						cv_calibration_done.notify_one();
 					}
 
 					virtual void recordNumOfSamples(const size_t& numSamples)  {
-						initIMUDataTable.clear();
-						std::cout << "Recording Static Pose..." << std::endl;
-						size_t i = 0;
-						while (i < numSamples) {
-							// get frame measurements. `getData()` is common to all input
-							// drivers
-							std::cout << "am i stuck here?" << std::endl;
-							initIMUDataTable.push_back(m_driver->getData());
-							++i;
+						{
+							std::lock_guard<std::mutex> lock(calibration_mtx);
+							initIMUDataTable.clear();
+							std::cout << "Recording Static Pose..." << std::endl;
+							size_t i = 0;
+							while (i < numSamples) {
+								// get frame measurements. `getData()` is common to all input
+								// drivers
+								std::cout << "am i stuck here?" << std::endl;
+								std::vector<UIMUData> aa = m_driver->getData();
+								for(auto uimudata_i:aa)
+									std::cout << uimudata_i << ", ";
+								std::cout <<  std::endl;
+								initIMUDataTable.push_back(m_driver->getData());
+								++i;
+							}
+							data_ready = true;
 						}
+						cv_calibration_done.notify_one();
 					}
 
 					/**
@@ -230,6 +256,12 @@ namespace OpenSimRT {
 					 * https://math.stackexchange.com/questions/1984608/average-of-3d-rotations
 					 */
 					virtual std::vector<SimTK::Quaternion> computeAvgStaticPose()  {
+						std::unique_lock<std::mutex> lock(calibration_mtx);
+						while(!data_ready)
+						{
+							cv_calibration_done.wait(lock);
+						}
+
 						int n = initIMUDataTable.size();    // num of recorded frames
 						int m = initIMUDataTable[0].size(); // num of imu devices
 						auto avgQuaternionErrors =
@@ -237,7 +269,6 @@ namespace OpenSimRT {
 						auto avgQuaternions(avgQuaternionErrors);
 
 						ROS_INFO_STREAM("OLD: Using norm average of rotations");
-
 
 
 						// Quaternion product for each imu
@@ -266,6 +297,7 @@ namespace OpenSimRT {
 							avgQuaternions[j] = qe * q0;
 						}
 
+						data_ready = false; // seems weird, but we need to reset it so that we can calibrate again
 						return avgQuaternions;
 					}
 					virtual void clearCalibration()  
@@ -288,8 +320,6 @@ namespace OpenSimRT {
 				impl; // pointer to DriverErasureBase class
 			std::map<std::string, SimTK::Transform> imuBodiesInGround; // R_GB per body
 			std::vector<std::string> imuBodiesObservationOrder;       // imu order
-    std_msgs::Header sameHeader;
 			SimTK::Rotation R_heading; // heading correction
-			void publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header);
 	};
 } // namespace OpenSimRT

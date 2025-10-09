@@ -38,7 +38,7 @@ void TfServer::set_tfs(std::vector<std::string> tf_names, std::string tf_frame_p
 
 	//tf_strs = tf_names;
 	if (tf_names.size() == 0)
-		ROS_FATAL("NO TF NAMES");
+		ROS_FATAL("TFServer: NO TF NAMES");
 	for (auto i:tf_names)
 	{
 		std::string used_frame = tf_frame_prefix+"/" + i;
@@ -56,7 +56,7 @@ void TfServer::set_world_reference(std::string world_name)
 //std::vector<double> TfServer::receive()
 bool TfServer::receive()
 {
-	ROS_DEBUG_STREAM("not simple");
+	ROS_DEBUG_STREAM("TFServer receive called: ");
 	std::vector<double> combined_imu_data_vec;
 	// now i need to set this combined_imu_data_vec with the values i read for the quaternions somehow
 	//std::vector<std::string> tf_strs = {"/a", "b", "c"};	
@@ -71,7 +71,7 @@ bool TfServer::receive()
 	}
 	//for( auto i:combined_imu_data_vec)
 	//	ROS_INFO_STREAM("THIS THING" << i);
-	ROS_DEBUG_STREAM("THIS THING:" << combined_imu_data_vec.size());
+	ROS_DEBUG_STREAM("TFServer combined imu data vec size after reading: " << combined_imu_data_vec.size());
 
 	output = combined_imu_data_vec;
 	return true;	
@@ -80,7 +80,7 @@ bool TfServer::receive()
 
 void TfServer::readTransform(std::string tf_name)
 {
-	ROS_DEBUG_STREAM("Trying to find transform " << tf_name);
+	ROS_DEBUG_STREAM("TFServer: Trying to find transform " << tf_name);
 	tf::StampedTransform transform;
 	try{
 		//listener.waitForTransform(tf_name, world_tf_reference, ros::Time(0), ros::Duration(3.0));
@@ -88,7 +88,7 @@ void TfServer::readTransform(std::string tf_name)
 		//listener.lookupTransform(tf_name, world_tf_reference, ros::Time(0), transform); //flipped, new attempt to try to avoid -w
 	}
 	catch (tf::TransformException& ex){
-		ROS_ERROR_THROTTLE(5,"Orientation: Transform exception! %s",ex.what());
+		ROS_ERROR_THROTTLE(5,"TFServer: Orientation: Transform exception! %s",ex.what());
 	}
 	last_transforms[tf_name] = transform;
 }
@@ -101,7 +101,7 @@ std::vector<double> TfServer::readTransformIntoOpensim(std::string tf_name)
 	auto imu_q = transform.getRotation();
 
 
-	ROS_DEBUG_STREAM("tf_name: " << tf_name << " transform:\n " 	
+	ROS_DEBUG_STREAM("TFServer: tf_name: " << tf_name << " transform:\n " 	
 			<< "w: " << imu_q.getW() 
 			//<< " " << imu_q.w() 
 			<< "\n" 

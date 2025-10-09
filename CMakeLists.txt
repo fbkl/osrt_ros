@@ -6,6 +6,8 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 add_compile_options(-std=c++17 -O3 -g -Wall -pedantic -Wno-undef)
 #add_compile_options(-std=c++17 -O0 -g)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3 -g")
+	
+find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui) 
 
 find_package(OpenSim REQUIRED PATHS "${OPENSIM_HOME}"
 		simbody
@@ -24,10 +26,12 @@ find_package(catkin REQUIRED COMPONENTS
 	opensimrt_bridge
 	roscpp
 	rosdoc_lite
+	rviz
 	sensor_msgs
 	tf
 	tf2
 	tf2_ros
+	urdf
 	)
 #find_package(Simbody REQUIRED PATHS "/opt/dependencies/opensim-core/dependencies/simbody/lib/cmake/simbody/")
 
@@ -69,11 +73,14 @@ catkin_package(
 	message_runtime
 	opensimrt_msgs 
 	opensimrt_bridge
+	pluginlib
 	roscpp
+	rviz
 	sensor_msgs
 	tf2
 	tf2_ros
 	LIBRARIES osrtRosUIMU osrtRosPipeline
+	osrt_rviz_plugin	
 	)
 
 message(NOTICE "Eigen3")
@@ -167,7 +174,7 @@ target_link_libraries(custom_joints_node
   osrtRosPipeline
 )
 
-add_executable(osim_to_simple_urdf src/osrt_ros/osim_to_simple_urdf.cpp)
+add_executable(osim_to_simple_urdf src/osrt_ros/osim_urdf_node.cpp src/osrt_ros/osim_to_simple_urdf.cpp)
 add_dependencies(osim_to_simple_urdf ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(osim_to_simple_urdf
   ${catkin_LIBRARIES}
@@ -197,4 +204,45 @@ target_link_libraries(o_node
   ${opensimrt_LIBRARIES}
 )
 
+set(BUILD_RVIZ_PLUGIN ON)
+
+if(BUILD_RVIZ_PLUGIN)
+	set(CMAKE_AUTOMOC ON)
+	set(CMAKE_AUTOUIC ON)
+	#set(QT_LIBRARIES Qt5::Widgets)
+	#qt5_wrap_cpp(MOC_FILES src/osrt_ros/osrt_rviz_plugin.cpp)
+	add_library(osrt_rviz_plugin SHARED 
+		src/osrt_ros/osim_to_simple_urdf.cpp
+		src/osrt_ros/osim_rviz_plugin.cpp
+		#	${MOC_FILES}
+		)
+	#target_include_directories(osrt_rviz_plugin PUBLIC 
+	#	${QT_INCLUDE_DIR} 
+	#	/usr/include/x85_64-linux-gnu/qt5/QtCore
+	#	/usr/include/x85_64-linux-gnu/qt5/QtGui
+	#	/usr/include/x85_64-linux-gnu/qt5
+	#	) ## i love how well these things just dont seem to work, or i cant seem to figure out how to make them work without hardcoding paths :(
+	foreach(dir ${Qt5_INCLUDE_DIRS})
+		message(STATUS
+			"qt5_dir=${dir}"
+			)
+	endforeach()
+	foreach(dir ${QT_INCLUDE_DIR})
+		message(STATUS
+			"qt_dir=${dir}"
+			)
+	endforeach()
+	add_dependencies(osrt_rviz_plugin ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+	target_link_libraries(osrt_rviz_plugin
+	  ${catkin_LIBRARIES}
+	 tinyxml2
+	  ${OpenSim_LIBRARIES}
+	  ${opensimrt_LIBRARIES}
+	  osrtRosPipeline
+	  Qt5::Widgets
+	  Qt5::Core
+	  Qt5::Gui
+	)
+
+endif()
 

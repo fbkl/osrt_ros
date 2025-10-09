@@ -164,7 +164,7 @@ class GetPointFromSomeTF
 					latest_marker_tfs[this_marker_tf] = transform;
 				}
 				catch (tf::TransformException& ex){
-					ROS_ERROR_THROTTLE(60,"Translation part Transform exception! %s",ex.what());
+					ROS_ERROR_THROTTLE(60,"AR: Translation part Transform exception! %s",ex.what());
 				}
 				auto transform = latest_marker_tfs[this_marker_tf];
 				//I am really bad at this, so I am hard coding this transformation. 
@@ -221,6 +221,7 @@ class UIMUnode: Ros::CommonNode
 
 		GetPointFromSomeTF* tfPointGetter;
 
+
 		void get_params()
 		{
 			ros::NodeHandle nh("~");
@@ -231,9 +232,9 @@ class UIMUnode: Ros::CommonNode
 
 			nh.param<std::string>("imu_base_body", imuBaseBody, "");
 
-			nh.param<double>("imu_ground_rotation_x1", xGroundRotDeg1, 0.0);
-			nh.param<double>("imu_ground_rotation_y1", yGroundRotDeg1, 0.0);
-			nh.param<double>("imu_ground_rotation_z1", zGroundRotDeg1, 0.0);
+			nh.param<double>("imu_ground_rotation_x", xGroundRotDeg1, 0.0);
+			nh.param<double>("imu_ground_rotation_y", yGroundRotDeg1, 0.0);
+			nh.param<double>("imu_ground_rotation_z", zGroundRotDeg1, 0.0);
 			nh.getParam("imu_observation_order", imuObservationOrder);
 			if (imuObservationOrder.size() == 0)
 			{
@@ -281,7 +282,7 @@ class UIMUnode: Ros::CommonNode
 
 		}
 		void reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level){
-			ROS_INFO("Reconfigure request %s, (%f, %f, %f)", config.imu_direction_axis_param.c_str(), config.imu_ground_rotation_x, config.imu_ground_rotation_y,config.imu_ground_rotation_z);
+			ROS_INFO("IMU Ground Orientation reconfigure request %s, (%f, %f, %f)", config.imu_direction_axis_param.c_str(), config.imu_ground_rotation_x, config.imu_ground_rotation_y,config.imu_ground_rotation_z);
 
 			if (clb_is_ready)
 			{
@@ -292,11 +293,11 @@ class UIMUnode: Ros::CommonNode
 				start_ik();
 			}
 			else
-				ROS_WARN("calibrator not yet defined.");
+				ROS_WARN("IMU Ground Orientation reconfigure request warning: calibrator not yet defined.");
 
 		}
 		void reconfigure_heading_callback(osrt_ros::headingConfig &config, uint32_t level){
-			ROS_INFO("base IMU heading angle:%f", config.base_imu_heading);
+			ROS_INFO("Heading Reconfigure request base IMU heading angle: %f", config.base_imu_heading);
 
 			if (clb_is_ready)
 			{
@@ -306,7 +307,7 @@ class UIMUnode: Ros::CommonNode
 
 			}
 			else
-				ROS_WARN("calibrator not yet defined.");
+				ROS_WARN("Heading Reconfigure request warning: calibrator not yet defined.");
 
 		}
 			vector<InverseKinematics::MarkerTask> markerTasks;
@@ -320,7 +321,7 @@ class UIMUnode: Ros::CommonNode
 			{
 				vector<string> markerObservationOrder;
 				for (auto some_marker_name:tfPointGetter->markerNames)
-					ROS_WARN_STREAM("thename:"<<some_marker_name);
+					ROS_WARN_STREAM("AR positional marker name: "<<some_marker_name);
 
 				InverseKinematics::createMarkerTasksFromMarkerNames(model, tfPointGetter->markerNames, markerTasks,
 						markerObservationOrder);
@@ -336,16 +337,36 @@ class UIMUnode: Ros::CommonNode
 				string imuObservationOrderStr;
 				for(auto a:imuObservationOrder)
 				{
-					imuObservationOrderStr +=a+",";
+					imuObservationOrderStr +=a+", ";
 				}
-				ROS_INFO_STREAM("Using imu observation " << imuObservationOrderStr);
+				ROS_INFO_STREAM("Using imu observation order: " << imuObservationOrderStr);
 			}
 		}
 		void start_ik()
 		{
 			chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
 			ROS_DEBUG_STREAM("setGroundOrientationSeq");
-			clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
+			if (false)
+			{
+				clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
+				ROS_INFO("Setting ground orientation from params");
+			}
+			else
+			{
+				auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
+				Vec3 trans_p{1,1,1};
+				Vec3 trans_p2{1.1,1,1};
+				SimTK::Transform TX(R_GoGi2,trans_p);
+				SimTK::Transform TX2(~R_GoGi2,trans_p2);
+				clb->sameHeader.stamp = ros::Time::now();
+				clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
+				clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
+				Vec3 trans_p0{1.1,1,-1};
+				clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
+				SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
+				clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
+				ROS_WARN_STREAM("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before" << R_GoGi2 );
+			}
 			ROS_DEBUG_STREAM("heading");
 			clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
 
@@ -361,7 +382,7 @@ class UIMUnode: Ros::CommonNode
 
 			//TODO: publish correct ROS topics
 			output.labels = qRawLogger.getColumnLabels();
-			ROS_INFO_STREAM("done with start_ik");
+			ROS_INFO_STREAM("Done with start_ik");
 			chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
 			ROS_WARN_STREAM(bar << "start_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
@@ -373,7 +394,7 @@ class UIMUnode: Ros::CommonNode
 
 			for (auto q:vv)
 			{
-				ROS_INFO_STREAM(q[0] <<","<<q[1]<<","<<q[2]<<","<<q[3]);
+				ROS_INFO_STREAM("Weird serializer (quaternion): " << q[0] <<","<<q[1]<<","<<q[2]<<","<<q[3]);
 				serialized.push_back(q[0]);
 				serialized.push_back(q[1]);
 				serialized.push_back(q[2]);
@@ -399,11 +420,12 @@ class UIMUnode: Ros::CommonNode
 		void doCalibrate()
 		{
 			ROS_DEBUG_STREAM("clb samples");
-			clb->recordNumOfSamples(10);
+			clb->recordNumOfSamples(100); //TODO:PARAM!
 			clb_is_ready = true;
 			clearLogger(imuCalibrationLogger);
-			ROS_INFO_STREAM("number of rows in table is" << imuCalibrationLogger.getNumRows());
-			imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions));
+			ROS_INFO_STREAM("After clearing table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
+			imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions)); //if this is the time, maybe we want to add the calibration time here as well. Also, maybe we don't want to clear the calibration, or clear only after saving? TODO: think about this
+			ROS_INFO_STREAM("After appending clb samples to table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
 		}
 		bool calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 		{
@@ -438,6 +460,8 @@ class UIMUnode: Ros::CommonNode
 			// calibrator
 			ROS_DEBUG_STREAM("Setting up IMUCalibrator");
 			clb = new IMUCalibrator(model, driver, imuObservationOrder);
+			
+
 			doCalibrate();
 			
 			define_tasks();
@@ -445,12 +469,12 @@ class UIMUnode: Ros::CommonNode
 
 			string all_labels;
 			ros::NodeHandle nh("~");
-			ROS_INFO_STREAM("setting plottable_outputs");
+			ROS_INFO_STREAM("Setting plottable_outputs topic advertisers...");
 			for (auto l:output.labels)
 			{
 
 				plottable_outputs.push_back(nh.advertise<std_msgs::Float64>("joints/"+l,1));
-				all_labels+=l+",";
+				all_labels+=l+", ";
 			}
 			ROS_INFO_STREAM("Publisher labels: "<<all_labels);
 			//I want to start the service after we set the labels, otherwise it might reply with an empty message.
@@ -460,7 +484,7 @@ class UIMUnode: Ros::CommonNode
 			if (visualiseIt)
 			{
 				ROS_DEBUG_STREAM("Setting up visualizer");
-				ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/");
+				ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/"); // TODO: omg this is so old, add param or something
 				visualizer = new BasicModelVisualizer(model);
 				visualizer->publish_transforms = true;
 			}
@@ -483,7 +507,7 @@ class UIMUnode: Ros::CommonNode
 				string columnNamesStr = "";
 				for(auto cn:columnNames)
 				{
-					columnNamesStr+=cn+",";
+					columnNamesStr+=cn+", ";
 				}
 				ROS_DEBUG_STREAM("got columnNamesStr: " << columnNamesStr);
 				qLogger.setColumnLabels(columnNames);
@@ -548,7 +572,7 @@ class UIMUnode: Ros::CommonNode
 					int i = 0;
 					for (double joint_angle:pose.q)
 					{
-						ROS_DEBUG_STREAM("some joint_angle:"<<joint_angle);
+						ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
 						std_msgs::Float64 j_msg;
 						j_msg.data = joint_angle*180/3.14159265;
 						plottable_outputs[i].publish(j_msg);

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
 	<arg name="freq" default="100" />
-	<arg name="imu_observation_order" default="['torso','pelvis','femur_r','femur_l','tibia_r','tibia_l','talus_r','talus_l']"/>
+	<arg name="imu_observation_order" default="['torso','pelvis']"/>
 	<include file="$(find osrt_ros)/launch/ik_from_orientation_providers.xml">
 		<arg name="imu_observation_order" value="$(arg imu_observation_order)"/>
 	</include>

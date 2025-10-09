@@ -18,12 +18,7 @@
 	<group ns="fake_imu_broadcasters">		
 		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="torso" args="1 1.4 0 		0 0 0 1 $(arg some_frame) imu/torso   " />
 		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 1.2 0 	0 0 0 1 $(arg some_frame) imu/pelvis  " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="1 0.9 0.1 	0 0 0 1 $(arg some_frame) imu/femur_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="1 0.9 -0.1 	0 0 0 1 $(arg some_frame) imu/femur_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="1 0.4 0.1 	0 0 0 1 $(arg some_frame) imu/tibia_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="1 0.4 -0.1 	0 0 0 1 $(arg some_frame) imu/tibia_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="1 0.1 0.1 	0 0 0 1 $(arg some_frame) imu/talus_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="1 0.1 -0.1 	0 0 0 1 $(arg some_frame) imu/talus_l " />
+
 	</group>
 	<!-- torso pelvis femur_r femur_l tibia_r tibia_l talus_r talus_l -->
 
@@ -32,19 +27,14 @@
 		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="thorax" args="0 0 0 	0 0 0 1 $(arg some_frame) ar/thorax " />
 		
 		<!-- i havent done those yet though they need like markers in the model and the yaml file thing -->
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="0 1.2 0 	0 0 0 1 $(arg some_frame) ar/pelvis  " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="0 0.9 0.1 	0 0 0 1 $(arg some_frame) ar/femur_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="0 0.9 -0.1 	0 0 0 1 $(arg some_frame) ar/femur_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="0 0.4 0.1 	0 0 0 1 $(arg some_frame) ar/tibia_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="0 0.4 -0.1 	0 0 0 1 $(arg some_frame) ar/tibia_l " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="0 0.1 0.1 	0 0 0 1 $(arg some_frame) ar/talus_r " />
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="0 0.1 -0.1 	0 0 0 1 $(arg some_frame) ar/talus_l " />
-
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="0 0 0 	0 0 0 1 $(arg some_frame) ar/pelvis  " />
 	</group>
 
 
 
 	<group ns="essential_tf_broadcasters">
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="map_to_world_opensimrt_broadcaster" args="0 0 0  0 0 0 1 map world   " />
+		<arg name="ioption0" value = " 0      0.     0      1    "/>
 		<arg name="ioption1" value = " 0      0.707  0      0.707"/>
 		<arg name="ioption2" value = "-0.707  0      0.707  0    "/>
 		<arg name="ioption3" value = "-0.5   -0.5    0.5    0.5  "/>
@@ -55,24 +45,26 @@
 
 
 		<!-- option 2 looks the closest to the osim visualization-->
+		<arg name="ooption0" value = " 0      0      0      1    "/>
 		<arg name="ooption1" value = " 0.707  0      0      0.707"/>
 		<arg name="ooption2" value = " 0.5    0.5    0.5    0.5  "/>
 		<arg name="ooption3" value = " 0      0.707  0.707  0    "/>
 		<arg name="ooption4" value = "-0.5    0.5    0.5   -0.5  "/>
-		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="link0_broadcaster" args="0 0 0  0 0 0 1 map world   " />
+		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   " />
 
 		<!-- I haven't derived this, but I have made the movable node show me all possible transformations that look right, and there are only 4! so we inspect them one by one -->
 		<!-- node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->
 		<!-- node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster2" args="0 0 0  0.5 0.5 0.5 0.5 map opensim_frame   " / -->
-		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   " />
 		<!--node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster4" args="0 0 0  -0.5 0.5 0.5 -0.5 map opensim_frame   " / -->
+		<arg name="noption0" value = " 0      0      0      1    "/>
+		<arg name="noption1" value = " 0      0     -1      0    "/>
+		<node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   $(arg noption0) imu intermediate_link "/>
 	</group>
 
 	<!-- the args in the launch prefix has the minus minus together! -->
 	<!-- node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 0.707 0.707 imu intermediate_link " launch-prefix="gdb -ex run - -args" output="screen"/ -->
 	<!--node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 0.707 0.707 imu intermediate_link " output="screen"/ -->
 	<!--node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0.707 0 0.707 imu intermediate_link " output="screen"/ -->
-	<node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 -1 0 imu intermediate_link "/>
 
 
 

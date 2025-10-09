@@ -103,5 +103,13 @@ struct  UIMUData {
      * Return the quaternion data.
      */
     SimTK::Quaternion getQuaternion() const;
+
+	friend std::ostream& operator<<(std::ostream& os, const UIMUData& obj)
+	{
+		os << "UIMUData: quaternion " << obj.quaternion.q;
+		return os;
+	}
+
+
 };
 } // namespace OpenSimRT

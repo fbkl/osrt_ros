@@ -11,9 +11,12 @@
 #include <osrt_ros/headingConfig.h>
 
 int main(int argc, char** argv) {
+	OpenSim::Object* muscleModel = nullptr;
 	try {
 		ros::init(argc, argv, "online_lower_limb_uimu_ik");
 		ros::NodeHandle n;
+
+//		if (false && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
 		UIMUnode o;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
@@ -27,7 +30,7 @@ int main(int argc, char** argv) {
 		f2 = boost::bind(&UIMUnode::reconfigure_heading_callback, &o, _1, _2);
 		heading_server_.setCallback(f2);
 		// either like this:
-		OpenSim::Object* muscleModel = new OpenSim::Thelen2003Muscle();
+		muscleModel = new OpenSim::Thelen2003Muscle();
 		o.registerType(muscleModel);
 		// or alternatively, more simply:
 		// Object::registerType(Thelen2003Muscle());
@@ -63,6 +66,7 @@ int main(int argc, char** argv) {
 		cout << "Program crashed while running. Reason: " << e.what() << endl;
 		return -1;
 	}
+	delete(muscleModel);
 	return 0;
 }
 

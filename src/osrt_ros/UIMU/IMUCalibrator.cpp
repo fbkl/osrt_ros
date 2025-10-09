@@ -138,6 +138,31 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationSeq(const double& xDegrees,
 	return R_GoGiX;
 }
 
+SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfname)
+{
+	geometry_msgs::TransformStamped standard_imu_orientation_tf;
+
+	try{
+		// target frame, source frame!!!
+		standard_imu_orientation_tf = tfBuffer.lookupTransform("imu_ref_ori", "map", ros::Time(0));
+		//coult it be an inverse transform_????
+		// doesnt look likeit
+		//standard_imu_orientation_tf = tfBuffer.lookupTransform("map", "imu_ref_ori", ros::Time(0));	
+	}
+	catch(tf::TransformException& ex)
+	{
+		ROS_ERROR("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXcouldnt read standard imu_orientation. reason:%s",ex.what());
+		SimTK::Rotation myR;
+		return myR;
+	}
+	Quaternion q;
+	q[0] = standard_imu_orientation_tf.transform.rotation.w;
+	q[1] = standard_imu_orientation_tf.transform.rotation.x;
+	q[2] = standard_imu_orientation_tf.transform.rotation.y;
+	q[3] = standard_imu_orientation_tf.transform.rotation.z;
+	SimTK::Rotation myR(q);
+	return myR;
+}
 SimTK::Rotation
 IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		const std::string& imuDirectionAxis) {
