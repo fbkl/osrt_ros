@@ -140,6 +140,9 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationSeq(const double& xDegrees,
 
 SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfname)
 {
+	Quaternion q;
+	if (false)
+	{
 	geometry_msgs::TransformStamped standard_imu_orientation_tf;
 
 	try{
@@ -155,11 +158,15 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfn
 		SimTK::Rotation myR;
 		return myR;
 	}
-	Quaternion q;
 	q[0] = standard_imu_orientation_tf.transform.rotation.w;
 	q[1] = standard_imu_orientation_tf.transform.rotation.x;
 	q[2] = standard_imu_orientation_tf.transform.rotation.y;
 	q[3] = standard_imu_orientation_tf.transform.rotation.z;
+	}
+	else{
+		ROS_WARN_STREAM("bypassing findint the imu orientation correction because i think i know this already");	
+	}
+	// default constructor for q already makes it w, x, y, z 1,0,0,0
 	SimTK::Rotation myR(q);
 	return myR;
 }
@@ -217,6 +224,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		auto inverseq0_rotation_matrix = ~Rotation(q0);
 
+		ROS_INFO_STREAM(magenta << "R_GoGi1 (should be roughly the same as inverse q in the zero case): "<< R_GoGi1<<reset);
 		ROS_INFO_STREAM(cyan << "inverseq0_rotation_matrix: "<< inverseq0_rotation_matrix<<reset);
 		const auto base_R = R_GoGi1 * Rotation(q0);
 

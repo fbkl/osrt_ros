@@ -106,7 +106,7 @@ struct  UIMUData {
 
 	friend std::ostream& operator<<(std::ostream& os, const UIMUData& obj)
 	{
-		os << "UIMUData: quaternion " << obj.quaternion.q;
+		os << "UIMUData: Opensim(Hamilton) quaternion [w,x,y,z] " << obj.quaternion.q;
 		return os;
 	}
 

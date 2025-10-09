@@ -31,12 +31,12 @@
 		<!-- OK, this is confusing as hell-->
 		<!-- however tf_frame_prefix is the source of tf, either imu or ar right now, that will be put before the name so we can have both of these at the same time. they could be shared, i think in the future, but this is more flexible.-->
 
-		<param name="imu_tf_world_reference" 		value="map" />
+		<param name="imu_tf_world_reference" 		value="imu_ref_ori" />
 		<!-- if you setup the next line to be the subject_heading, since currently this is the publication frame for the IMUs as well, then the heading values will not have any effect. -->
 		<!--param name="imu_tf_world_reference" 		value="subject_heading" / -->
 		<param name="tf_frame_prefix" 		value="imu" />
 
-		<param name="imu_direction_axis" 		value="-z" />
+		<param name="imu_direction_axis" 		value="z" />
 		<param name="imu_ground_rotation_x" 		value="-90" />
 		<param name="imu_ground_rotation_y" 		value="0" />
 		<param name="imu_ground_rotation_z" 		value="0" />
