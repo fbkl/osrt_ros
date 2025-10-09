@@ -6,13 +6,14 @@
 #include <rviz/robot/robot_link.h>
 #include <tinyxml2.h>
 
+
 namespace osrt_rviz {
 
 	OsimModelDisplay::OsimModelDisplay()
 	{
-		robot_description_property_->setDescription("new description");
-		robot_description_property_->setString("Osim Description path");
-		robot_description_property_->setName("osim_description");
+		robot_description_property_->setDescription("Path for .osim model");
+		robot_description_property_->setString("/srv/host_data/fk.osim");
+		robot_description_property_->setName("Osim model path:");
 
 		/*=
 			new rviz::StringProperty("Robot Description", "robot_description",
