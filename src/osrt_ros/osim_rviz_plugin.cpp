@@ -1,44 +1,24 @@
+#include <filesystem>
 #include <osrt_ros/osim_rviz_plugin.h>
 #include <osrt_ros/osim_to_urdf.h>
 #include <rviz/display_context.h>
 #include <rviz/robot/tf_link_updater.h>
 #include <rviz/robot/robot_link.h>
+#include <tinyxml2.h>
 
 namespace osrt_rviz {
 
 	OsimModelDisplay::OsimModelDisplay()
 	{
-		visual_enabled_property_ =
-			new Property("Visual Enabled", true, "Whether to display the visual representation of the robot.",
-					this, &OsimModelDisplay::updateVisualVisible);
+		robot_description_property_->setDescription("new description");
+		robot_description_property_->setString("Osim Description path");
+		robot_description_property_->setName("osim_description");
 
-		collision_enabled_property_ =
-			new Property("Collision Enabled", false,
-					"Whether to display the collision representation of the robot.", this,
-					&OsimModelDisplay::updateCollisionVisible);
-
-		update_rate_property_ = new rviz::FloatProperty("Update Interval", 0,
-				"Interval at which to update the links, in seconds. "
-				"0 means to update every update cycle.",
-				this);
-		update_rate_property_->setMin(0);
-
-		alpha_property_ = new rviz::FloatProperty("Alpha", 1, "Amount of transparency to apply to the links.", this,
-				&OsimModelDisplay::updateAlpha);
-		alpha_property_->setMin(0.0);
-		alpha_property_->setMax(1.0);
-
-		robot_description_property_ =
+		/*=
 			new rviz::StringProperty("Robot Description", "robot_description",
 					"Name of the parameter to search for to load the robot description.", this,
 					&OsimModelDisplay::updateRobotDescription);
-
-		tf_prefix_property_ = new rviz::StringProperty(
-				"TF Prefix", "",
-				"Robot Model normally assumes the link name is the same as the tf frame name. "
-				" This option allows you to set a prefix.  Mainly useful for multi-robot situations.",
-				this, &OsimModelDisplay::updateTfPrefix);
-
+		*/
 	}
 	OsimModelDisplay::~OsimModelDisplay()
 	{
@@ -89,41 +69,38 @@ namespace osrt_rviz {
 		clearStatuses();
 		context_->queueRender();
 
-		std::string content;
+		std::string file_path, content; //
 		try
 		{
-			if (!update_nh_.getParam(robot_description_property_->getStdString(), content))
+			if (!std::filesystem::exists(robot_description_property_->getStdString()))
 			{
-				std::string loc;
-				if (update_nh_.searchParam(robot_description_property_->getStdString(), loc))
-					update_nh_.getParam(loc, content);
-				else
-				{
 					clear();
-					setStatus(rviz::StatusProperty::Error, "URDF",
-							QString("Parameter [%1] does not exist, and was not found by searchParam()")
+					setStatus(rviz::StatusProperty::Error, "OSIM",
+							QString("File [%1] does not exist.")
 							.arg(robot_description_property_->getString()));
 					// try again in a second
 					QTimer::singleShot(1000, this, &OsimModelDisplay::updateRobotDescription);
 					return;
-				}
 			}
+			else
+				file_path = robot_description_property_->getStdString();
 		}
 		catch (const ros::InvalidNameException& e)
 		{
 			clear();
-			setStatus(rviz::StatusProperty::Error, "URDF",
+			setStatus(rviz::StatusProperty::Error, "OSIM",
 					QString("Invalid parameter name: %1.\n%2")
 					.arg(robot_description_property_->getString(), e.what()));
 			return;
 		}
 
-		if (content.empty())
-		{
-			clear();
-			setStatus(rviz::StatusProperty::Error, "URDF", "URDF is empty");
-			return;
-		}
+		/// we need to generate content which will be the actual urdf conversion!
+		///
+		tinyxml2::XMLDocument* conv_urdf = OsimToUrdf::create_model(file_path);
+		tinyxml2::XMLPrinter printer;
+		conv_urdf->Print(&printer);
+		content = printer.CStr();
+
 
 		if (content == robot_description_)
 		{
@@ -133,14 +110,18 @@ namespace osrt_rviz {
 		robot_description_ = content;
 
 		urdf::Model descr;
+
+
+
+
 		if (!descr.initString(robot_description_))
 		{
 			clear();
-			setStatus(rviz::StatusProperty::Error, "URDF", "Failed to parse URDF model");
+			setStatus(rviz::StatusProperty::Error, "URDF", "Failed to parse Converted URDF model!");
 			return;
 		}
 
-		setStatus(rviz::StatusProperty::Ok, "URDF", "URDF parsed OK");
+		setStatus(rviz::StatusProperty::Ok, "URDF", "Converted URDF parsed OK");
 		robot_->load(descr);
 		std::stringstream ss;
 		for (const auto& name_link_pair : robot_->getLinks())
