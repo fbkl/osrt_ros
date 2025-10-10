@@ -1,6 +1,7 @@
 #include "XmlRpcException.h"
 #include "XmlRpcValue.h"
 #include "geometry_msgs/TransformStamped.h"
+#include "opensimrt_msgs/Events.h"
 #include "opensimrt_msgs/PosVelAccTimed.h"
 #include "osrt_ros/UIMU/IMUCalibrator.h"
 //#include "INIReader.h"
@@ -535,11 +536,13 @@ class UIMUnode: Ros::CommonNode
 
 					// get input from imus
 					ROS_DEBUG_STREAM("Getting frame:");
+					addEvent("getting imu frame",msg);
 					auto imuData = driver->getFrame();
 
 					SimTK::Array_<SimTK::Vec3> markerObservations;
 					if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 					{
+						addEvent("getting ar frame",msg);
 						markerObservations = tfPointGetter->get_translations();
 
 					}
@@ -550,11 +553,11 @@ class UIMUnode: Ros::CommonNode
 					// solve ik
 					chrono::high_resolution_clock::time_point t1;
 					t1 = chrono::high_resolution_clock::now();
-
+					addEvent("solving ik", msg);
 					auto pose = ik->solve(
 							{imuData.first, markerObservations, clb->transform(imuData.second)});
 
-					addEvent("ik",msg);
+					addEvent("ik done",msg);
 					chrono::high_resolution_clock::time_point t2;
 					t2 = chrono::high_resolution_clock::now();
 					sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1)
@@ -579,11 +582,13 @@ class UIMUnode: Ros::CommonNode
 						plottable_outputs[i].publish(j_msg);
 						i++;
 					}
+					addEvent("plotted each joint ",msg);
 
-					pub.publish(msg);
+					
 					if(publish_filtered)
 					{
 						auto ikFiltered = ikfilter->filter({pose.t, pose.q});
+						addEvent("filter done ",msg);
 						auto q = ikFiltered.x;
 						auto qDot = ikFiltered.xDot;
 						auto qDDot = ikFiltered.xDDot;
@@ -593,10 +598,12 @@ class UIMUnode: Ros::CommonNode
 							continue; }
 						ROS_DEBUG_STREAM("Filter results are valid");
 						opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
-						pub_filtered.publish(msg_filtered);
 						// visualize filtered!
 						if (visualiseIt)
-							visualizer->update(q);
+						{	visualizer->update(q);
+							addEvent("visualizer update filtered done ",msg);
+						
+						}
 						else
 						{
 							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true.");
@@ -608,13 +615,20 @@ class UIMUnode: Ros::CommonNode
 							qLogger.appendRow(pose.t,~q);
 							qDotLogger.appendRow(pose.t,~qDot);
 							qDDotLogger.appendRow(pose.t,~qDDot);
+							addEvent("filtered log added ",msg);
+						
 						}
+						msg_filtered.events = msg.events;
+						pub_filtered.publish(msg_filtered);
 					}
 					else
 					{
 						// visualize
 						if(visualiseIt)
+						{
 							visualizer->update(pose.q);
+							addEvent("visualizer update not filtered done ",msg);
+						}
 						else
 						{
 							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true.");
@@ -627,12 +641,14 @@ class UIMUnode: Ros::CommonNode
 						ROS_WARN_ONCE("Recording!");
 						imuLogger.appendRow(pose.t, driver->frame);//
 						qRawLogger.appendRow(pose.t, ~pose.q);
+						addEvent("normal log added ",msg);
 					}
 					previousTime = pose.t;
 					previousDt = Dt;
 					if(!ros::ok())
 						break;
 					ros::spinOnce();
+					addEvent("extra spin ",msg);
 
 					std_msgs::Int64 time_ik_msg;
 					time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -643,6 +659,7 @@ class UIMUnode: Ros::CommonNode
 					std_msgs::Int64 time_msg;
 					time_msg.data = std::chrono::duration_cast<std::chrono::microseconds>(t3 -t1).count();
 					time_pub.publish(time_msg);
+					pub.publish(msg);
 					r->sleep();
 				}
 			} catch (std::exception& e) {
