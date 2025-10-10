@@ -161,16 +161,17 @@ class GetPointFromSomeTF
 					geometry_msgs::TransformStamped transform;
 					//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
 					transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+					//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 					latest_marker_tfs[this_marker_tf] = transform;
 				}
 				catch (tf::TransformException& ex){
 					ROS_ERROR_THROTTLE(60,"AR: Translation part Transform exception! %s",ex.what());
 				}
 				auto transform = latest_marker_tfs[this_marker_tf];
-				//I am really bad at this, so I am hard coding this transformation. 
-				v.set(0, - transform.transform.translation.x); //???
-				v.set(2, transform.transform.translation.y); //???
-				v.set(1, transform.transform.translation.z); //???
+				//if you are in a hurry just hard code the transform here because we just want it to work now.
+				v.set(0, transform.transform.translation.x);
+				v.set(1, transform.transform.translation.y);
+				v.set(2, transform.transform.translation.z);
 				markerObservations.push_back(v);
 
 			}

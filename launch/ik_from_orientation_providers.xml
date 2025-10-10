@@ -55,7 +55,8 @@
 		<param name="use_position_markers" 	value="$(arg use_ar)"/>
 		<param name="marker/tf_timeout" 	value="0.01" />
 		<param name="marker/tf_frame_prefix" 	value="ar" />
-		<param name="marker/world_tf_reference" value="imu_ref_ori" />
+		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
+		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 		<rosparam>
 marker:
