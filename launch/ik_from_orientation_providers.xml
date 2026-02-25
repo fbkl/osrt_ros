@@ -11,15 +11,13 @@
 	<arg name="use_sim_time"	default="false"/>
 	<!--arg name="model_file" 		default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
 	<arg name="model_file" 		default="/srv/host_data/fk.osim" />
-	<arg name="use_ar"		default="true"/>
-	<arg name="imu_observation_order" default="['torso','pelvis','femur_r','femur_l','tibia_r','tibia_l','talus_r','talus_l']"/>
+	<arg name="use_ar"		default="false"/>
 	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" output="screen" >
 		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
 		<!-- param name="resample_period" 		value="0.01" / -->
 		<param name="model_file" 		value="$(arg model_file)" />
 		<!--param name="model_file" 		value="scale/model_scaled.osim" / -->
 		<param name="imu_base_body" 		value="pelvis" />
-		<rosparam param="imu_observation_order" subst_value="true" >$(arg imu_observation_order)</rosparam>
 
 		<param name="visualise"			value="$(arg visualise)"/>
 		<!-- OK, this is confusing as hell-->

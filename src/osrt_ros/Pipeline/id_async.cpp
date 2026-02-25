@@ -100,9 +100,9 @@ const geometry_msgs::WrenchStamped Pipeline::WrenchSubscriber::find_wrench_in_bu
 		}
 		//ROS_INFO_STREAM("\nwrench i got has the timestamp: " << best_wrench.header.stamp << "\ndesired stamp was:" << timestamp <<"\ntime difference: "<< best_wrench.header.stamp - timestamp);
 		//ROS_INFO_STREAM("wrench I got was in position: [" << i << "/" << max_buffer_length << "] at " << 100.0*float(i)/max_buffer_length << "%");
-		//ROS_DEBUG_STREAM("first time in buffer	:" <<wrenchBuffer.front().header.stamp);
-		//ROS_DEBUG_STREAM("last time in buffer	:" <<wrenchBuffer.back().header.stamp);
-		//ROS_DEBUG_STREAM("desired time 		:" <<timestamp);
+		//ROS_INFO_STREAM("first time in buffer	:" <<wrenchBuffer.front().header.stamp);
+		//ROS_INFO_STREAM("last time in buffer	:" <<wrenchBuffer.back().header.stamp);
+		//ROS_INFO_STREAM("desired time 		:" <<timestamp);
 		bool ik_too_slow = wrenchBuffer.front().header.stamp >timestamp;
 		bool ik_too_fast = wrenchBuffer.back().header.stamp < timestamp;
 			
@@ -122,7 +122,7 @@ const geometry_msgs::WrenchStamped Pipeline::WrenchSubscriber::find_wrench_in_bu
 			if ((timestamp-wrenchBuffer.back().header.stamp).toSec() > 4)
 			{
 				ROS_WARN_STREAM_ONCE("IK delay is larger than " << 4 << "seconds. Did the trial end?"); // the condition here for ending is that i am not receiving any more wrenches
-				keep_showing_errors = false;
+				//keep_showing_errors = false;
 			}
 
 			else
@@ -134,9 +134,10 @@ const geometry_msgs::WrenchStamped Pipeline::WrenchSubscriber::find_wrench_in_bu
 	}
 	else
 	{ //This should never happen
-		ROS_FATAL_STREAM_ONCE("Wrench Buffer is empty!");
+		ROS_FATAL_STREAM("Wrench Buffer is empty!");
 		too_fast_counter++;
 	}
+	//ROS_INFO_STREAM(best_wrench.wrench.force);
 	return best_wrench;
 }
 
@@ -195,10 +196,10 @@ bool Pipeline::WrenchSubscriber::get_wrench(const std_msgs::Header::_stamp_type 
 	auto now = ros::Time::now();
 	if (w.header.frame_id == "")
 	{
-		ROS_DEBUG_STREAM("header frame_id is empty!!!");
+		ROS_ERROR("Header frame_id is empty!!!");
 		return false;
 	}
-	ROS_DEBUG_STREAM("timing information:\nIK stamp: "<< timestamp <<"\nfound wrench header stamp:"<< w.header.stamp << "\nnow: "<< now <<"\nDelay of this node:" << now-timestamp );
+	//ROS_INFO_STREAM("timing information:\nIK stamp: "<< timestamp <<"\nfound wrench header stamp:"<< w.header.stamp << "\nnow: "<< now <<"\nDelay of this node:" << now-timestamp );
 	//auto sometime = w.header.stamp; //I hate myself.
 	//auto sometime = ros::Time(0); //I hate myself.
 
@@ -255,7 +256,7 @@ bool Pipeline::WrenchSubscriber::get_wrench(const std_msgs::Header::_stamp_type 
 			actualtransform.transform.rotation = nulltransform.transform.rotation;
 		if (get_external_orientation)
 		{
-			ROS_DEBUG_STREAM("getting external orientation");
+			ROS_INFO_STREAM("getting external orientation");
 			opensimrt_msgs::GroundProjectionOrientationAtTimeSrv srv;
 			srv.request.point_stamped.header = w.header; //will get the time of the found wrench.
 			srv.request.point_stamped.point.x = actualtransform.transform.translation.x; 
@@ -263,7 +264,7 @@ bool Pipeline::WrenchSubscriber::get_wrench(const std_msgs::Header::_stamp_type 
 			srv.request.point_stamped.point.z = actualtransform.transform.translation.z; 
 			if (ground_orientation_client.call(srv)) {
 				// Service call successful, process the response
-				ROS_DEBUG("Received orientation: x=%f, y=%f, z=%f, w=%f", srv.response.orientation.x, srv.response.orientation.y, srv.response.orientation.z, srv.response.orientation.w);
+				ROS_INFO("Received orientation: x=%f, y=%f, z=%f, w=%f", srv.response.orientation.x, srv.response.orientation.y, srv.response.orientation.z, srv.response.orientation.w);
 			} else {
 				// Service call failed
 				ROS_ERROR("Failed to call service!!!");
@@ -292,15 +293,20 @@ bool Pipeline::WrenchSubscriber::get_wrench(const std_msgs::Header::_stamp_type 
 
 	}
 	catch (tf2::TransformException &ex) {
-		ROS_DEBUG("Could not find a transform: parse_message transform exception: %s",ex.what());
-		ROS_ERROR_ONCE("Could not find a transform: parse_message transform exception: %s",ex.what());
+		ROS_ERROR("Could not find a transform: parse_message transform exception: %s",ex.what());
+		//ROS_ERROR_ONCE("Could not find a transform: parse_message transform exception: %s",ex.what());
 		//ros::Duration(1.0).sleep();
 		return false;
 	}
-	ROS_DEBUG_STREAM("I got some wrench. so far so good.");
+	//ROS_INFO_STREAM("I got some wrench. so far so good.");
 	//ROS_WARN_STREAM("TFs in wrench parsing of geometry_wrench messages not implemented! Rotated frames will fail!");
+//	ROS_INFO_STREAM(wO->force[0]);
+//	ROS_INFO_STREAM(wO->force[1]);
+//	ROS_INFO_STREAM(wO->force[2]);
+	//ROS_INFO_STREAM(wO->point[0]);
+	//ROS_INFO_STREAM(wO->point[1]);
+	//ROS_INFO_STREAM(wO->point[2]);
 	return true;
-
 }
 
 

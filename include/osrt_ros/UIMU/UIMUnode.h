@@ -488,6 +488,7 @@ class UIMUnode: Ros::CommonNode
 				ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/"); // TODO: omg this is so old, add param or something
 				visualizer = new BasicModelVisualizer(model);
 				visualizer->publish_transforms = true;
+				visualizer->tf_prefix = "ik/";
 			}
 			if(publish_filtered)
 			{

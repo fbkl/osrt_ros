@@ -12,6 +12,38 @@
 	<!--arg unless="$(arg static)"   name="node_type" value="modifiable_fixed_transform_publisher.py" /-->
 
 
+
+
+	
+	<group ns="fake_imu_broadcasters">		
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="torso" args="1 1.4 0 		0 0 0 1 $(arg some_frame) imu/torso   " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="1 1.2 0 	0 0 0 1 $(arg some_frame) imu/pelvis  " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="1 0.9 0.1 	0 0 0 1 $(arg some_frame) imu/femur_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="1 0.9 -0.1 	0 0 0 1 $(arg some_frame) imu/femur_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="1 0.4 0.1 	0 0 0 1 $(arg some_frame) imu/tibia_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="1 0.4 -0.1 	0 0 0 1 $(arg some_frame) imu/tibia_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="1 0.1 0.1 	0 0 0 1 $(arg some_frame) imu/talus_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="1 0.1 -0.1 	0 0 0 1 $(arg some_frame) imu/talus_l " />
+	</group>
+	<!-- torso pelvis femur_r femur_l tibia_r tibia_l talus_r talus_l -->
+
+	<!-- for these to work, we need to have the model still with markers -->
+	<group ns="fake_ar_broadcasters">
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="thorax" args="0 0 0 	0 0 0 1 $(arg some_frame) ar/thorax " />
+		
+		<!-- i havent done those yet though they need like markers in the model and the yaml file thing -->
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="pelvis" args="0 1.2 0 	0 0 0 1 $(arg some_frame) ar/pelvis  " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_r" args="0 0.9 0.1 	0 0 0 1 $(arg some_frame) ar/femur_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="femur_l" args="0 0.9 -0.1 	0 0 0 1 $(arg some_frame) ar/femur_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_r" args="0 0.4 0.1 	0 0 0 1 $(arg some_frame) ar/tibia_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="tibia_l" args="0 0.4 -0.1 	0 0 0 1 $(arg some_frame) ar/tibia_l " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_r" args="0 0.1 0.1 	0 0 0 1 $(arg some_frame) ar/talus_r " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="talus_l" args="0 0.1 -0.1 	0 0 0 1 $(arg some_frame) ar/talus_l " />
+
+	</group>
+
+
+
 	<group ns="essential_tf_broadcasters">
 		<arg name="ioption1" value = " 0      0.707  0      0.707"/>
 		<arg name="ioption2" value = "-0.707  0      0.707  0    "/>
@@ -19,7 +51,7 @@
 		<arg name="ioption4" value = "-0.5    0.5   -0.5    0.5  "/>
 		<arg name="ioption5" value = " 0.707  0      0.707  0    "/>
 		<arg name="ioption6" value = " 0.5  0.5      -0.5  -0.5   "/>
-		<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) opensim_frame imu_ref_ori " output="screen"/>
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) opensim_frame imu_ref_ori " output="screen"/>
 
 
 		<!-- option 2 looks the closest to the osim visualization-->
@@ -27,7 +59,7 @@
 		<arg name="ooption2" value = " 0.5    0.5    0.5    0.5  "/>
 		<arg name="ooption3" value = " 0      0.707  0.707  0    "/>
 		<arg name="ooption4" value = "-0.5    0.5    0.5   -0.5  "/>
-		<node pkg="tf2_ros" type="static_transform_publisher" name="link0_broadcaster" args="0 0 0  0 0 0 1 map world   " />
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="link0_broadcaster" args="0 0 0  0 0 0 1 map world   " />
 
 		<!-- I haven't derived this, but I have made the movable node show me all possible transformations that look right, and there are only 4! so we inspect them one by one -->
 		<!-- node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->

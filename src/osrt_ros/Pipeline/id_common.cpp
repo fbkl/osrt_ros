@@ -170,6 +170,7 @@ void Pipeline::IdCommon::onInit() {
 		//Now if the reference isnt ground I need to set the body index here. 
 		//TODO:: this is wrong, i need to add the bodyset thing for it to find it, but here it doesnt like it,  so i need to change something
 		rightGRFDecorator->setOriginByName(*model, grfRightFootPar.pointExpressedInBody);
+		ROS_WARN_STREAM("Point expressed in body R:"<<grfRightFootPar.pointExpressedInBody);
 		//
 
 
@@ -293,13 +294,13 @@ void Pipeline::IdCommon::run(const std_msgs::Header h , double t, std::vector<Si
 	t1 = chrono::high_resolution_clock::now();
 	addEvent("id_normal before id", e);
 
-	//ROS_INFO_STREAM("here1");;
+	//ROS_INFO_STREAM("Going to run ID");;
 	auto idOutput = id->solve(
 			{t, q, qDot, qDDot,
 			vector<ExternalWrench::Input>{grfRightWrench, grfLeftWrench}});
 	addEvent("id_normal after id",e);
 
-	ROS_DEBUG_STREAM("inverse dynamics ran ok");
+	ROS_DEBUG_STREAM("ID ran ok");
 	//ROS_INFO_STREAM("here2");;
 
 	// visualization

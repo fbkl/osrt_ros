@@ -1,14 +1,14 @@
 grf_right_point_identifier: ground_force_p
 grf_right_force_identifier: ground_force_v
 grf_right_torque_identifier: ground_torque_
-grf_right_apply_to_body: calcn_r
+#grf_right_apply_to_body: calcn_r
 grf_right_force_expressed_in_body: ground
 grf_right_point_expressed_in_body: ground
 
 grf_left_point_identifier: 1_ground_force_p
 grf_left_force_identifier: 1_ground_force_v
 grf_left_torque_identifier: 1_ground_torque_
-grf_left_apply_to_body: calcn_l
+#grf_left_apply_to_body: calcn_l
 grf_left_force_expressed_in_body: ground
 grf_left_point_expressed_in_body: ground
 
