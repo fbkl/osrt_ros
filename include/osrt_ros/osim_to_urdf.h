@@ -59,7 +59,7 @@ class CoutSilencer {
 		std::streambuf* oldCoutBuf;
 };
 
-tinyxml2::XMLDocument* create_model(std::string osim_path);
+tinyxml2::XMLDocument* create_model(std::string osim_path, std::string additional_path);
 }
 #endif /* end of include guard OSIMTOURDF_H */
 

@@ -20,6 +20,7 @@
 #include <vector>
 #include "OpenSimUtils.h"
 #include "Actuators/Thelen2003Muscle.h"
+#include "osrt_ros/parameters.h"
 //this is a better version of human_state_publisher, aka, forward kinematics! it doesnt work though.
 
 //since i dont know this, lets at least make it a function, so once it is known i can reuse it maybe.
@@ -53,7 +54,7 @@ class Osim_tf_publisher
 			muscleModel = new OpenSim::Schutte1993Muscle_Deprecated();
 			OpenSim::Object::RegisterType(*muscleModel);
 			model.setUseVisualizer(true);
-			OpenSim::ModelVisualizer::addDirToGeometrySearchPaths("/srv/data/geometry_mobl");
+			pars::setGeometryPath(nh);
 			model.setAllControllersEnabled(false);
 			model = OpenSim::Model(modelFile);
 			ROS_INFO_STREAM("created model okay");

@@ -133,6 +133,7 @@ void Pipeline::Acc::get_params()
 
 	// visualizer
 	visualizer = new BasicModelVisualizer(model);
+	visualizer->setVisualizer();
 	rightGRFDecorator = new ForceDecorator(Green, 0.001, 3);
 	visualizer->addDecorationGenerator(rightGRFDecorator);
 	leftGRFDecorator = new ForceDecorator(Green, 0.001, 3);

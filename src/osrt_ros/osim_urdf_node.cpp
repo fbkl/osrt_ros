@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		std::string osim_path = argv[1];
-	tinyxml2::XMLDocument* urdf = OsimToUrdf::create_model(osim_path);
+	tinyxml2::XMLDocument* urdf = OsimToUrdf::create_model(osim_path, "/srv/data/geometry_v3.3");
 
 	if (true)
 	{// Save to file

@@ -45,6 +45,7 @@ namespace pars
 
 	void getSimtkVec(ros::NodeHandle nh, std::string name, SimTK::Vec3 &vec);
 	SimTK::Vec3 getSimtkVec(ros::NodeHandle nh, std::string name);
+	void setGeometryPath(ros::NodeHandle nh);
 	}
 #endif /* end of include guard PARAMETERS070523_H */
 

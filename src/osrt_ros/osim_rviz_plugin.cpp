@@ -9,11 +9,17 @@
 
 namespace osrt_rviz {
 
+	FileProperty::~FileProperty(){} //anchor for vtable
+	DirectoryProperty::~DirectoryProperty(){} //anchor for vtable
 	OsimModelDisplay::OsimModelDisplay()
 	{
-		robot_description_property_->setDescription("Path for .osim model");
-		robot_description_property_->setString("/srv/host_data/fk.osim");
-		robot_description_property_->setName("Osim model path:");
+		delete rviz::RobotModelDisplay::robot_description_property_;
+		robot_description_property_ = new osrt_rviz::FileProperty("Osim model path", "/srv/host_data/fk.osim", "Path for the .osim model", this, SLOT(updateRobotDescription()), this);
+		geometries_path_property_ = new osrt_rviz::DirectoryProperty("Osim model geometries path", "/srv/data/geometry_v3.3", "Path for the .osim model geometry meshes", this, SLOT(updateRobotDescription()), this);
+		//connect(robot_description_property_, &FileProperty::changed, this, &OsimModelDisplay::load);
+		//robot_description_property_->setDescription("Path for .osim model");
+		//robot_description_property_->setString("/srv/host_data/fk.osim");
+		//robot_description_property_->setName("Osim model path:");
 
 		/*=
 			new rviz::StringProperty("Robot Description", "robot_description",
@@ -94,10 +100,35 @@ namespace osrt_rviz {
 					.arg(robot_description_property_->getString(), e.what()));
 			return;
 		}
+		
+		std::string dir_path; //
+		try
+		{
+			if (!std::filesystem::exists(geometries_path_property_->getStdString()))
+			{
+					clear();
+					setStatus(rviz::StatusProperty::Error, "OSIM",
+							QString("Directory [%1] does not exist.")
+							.arg(geometries_path_property_->getString()));
+					// try again in a second
+					QTimer::singleShot(1000, this, &OsimModelDisplay::updateRobotDescription);
+					return;
+			}
+			else
+				dir_path = geometries_path_property_->getStdString();
+		}
+		catch (const ros::InvalidNameException& e)
+		{
+			clear();
+			setStatus(rviz::StatusProperty::Error, "OSIM",
+					QString("Invalid parameter name: %1.\n%2")
+					.arg(geometries_path_property_->getString(), e.what()));
+			return;
+		}
 
 		/// we need to generate content which will be the actual urdf conversion!
 		///
-		tinyxml2::XMLDocument* conv_urdf = OsimToUrdf::create_model(file_path);
+		tinyxml2::XMLDocument* conv_urdf = OsimToUrdf::create_model(file_path, dir_path);
 		tinyxml2::XMLPrinter printer;
 		conv_urdf->Print(&printer);
 		content = printer.CStr();

@@ -6,7 +6,7 @@
 	<arg name="bypass_heading_computation" 		default="false"/>
 	<arg name="heading_debug"			default="0"/>
 	<arg name="heading_offset"			default="0"/>
-	<arg name="visualise" 				default="true" />
+	<arg name="visualise" 				default="false" />
 	<arg name="wait_to_start"	default="false"/>
 	<arg name="use_sim_time"	default="false"/>
 	<!--arg name="model_file" 		default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->

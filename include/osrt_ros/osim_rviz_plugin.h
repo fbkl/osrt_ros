@@ -9,9 +9,10 @@
 //#include "osrt_rviz_plugin.moc"
 #include <QObject>
 #include <QTimer>
+#include <QFileDialog>
 #include <rviz/display_context.h>
+#include "osim_rviz_filep.h"
 
-// i just copy pasted this but it isnt working 
 namespace osrt_rviz
 {
 	//virtual void load() override
@@ -21,21 +22,23 @@ namespace osrt_rviz
 	//}
 	class OsimModelDisplay : public rviz::RobotModelDisplay
 	{
+		FileProperty* robot_description_property_;
+		DirectoryProperty* geometries_path_property_;
 		public:
-			OsimModelDisplay();
-			~OsimModelDisplay() override;
-  using Display::load;
+		OsimModelDisplay();
+		~OsimModelDisplay() override;
+		using Display::load;
 
-private Q_SLOTS:
-  void updateVisualVisible();
-  void updateCollisionVisible();
-  void updateTfPrefix();
-  void updateAlpha();
-  void updateRobotDescription();
+		private Q_SLOTS:
+			void updateVisualVisible();
+		void updateCollisionVisible();
+		void updateTfPrefix();
+		void updateAlpha();
+		void updateRobotDescription();
 
-  protected:
+		protected:
 
-  virtual void load() override;
+		virtual void load() override;
 
 	};
 }

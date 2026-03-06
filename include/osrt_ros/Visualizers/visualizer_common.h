@@ -18,6 +18,7 @@
 #include <Common/Object.h>
 #include <SimTKcommon/internal/BigMatrix.h>
 #include <exception>
+#include "osrt_ros/parameters.h"
 
 //TODO:this is rather bad and I should be able to load models using some string input
 //TODO: remove this switch statement, find something better.
@@ -31,12 +32,13 @@ namespace Visualizers
 			{
 			}
 			ros::NodeHandle nh{"~"};
-			std::string modelFile, geometryPath;
+			std::string modelFile;
 			OpenSimRT::BasicModelVisualizer *visualizer=nullptr;
 			OpenSim::Model* model = nullptr;	
 			int m; // 1 is upper 2 is under...
 			ros::Subscriber sub, sub_filtered;
 			Ros::Reshuffler input;
+				OpenSim::Object* muscleModel;
 
 			void set_delay_from_header(ros::Time t)
 			{
@@ -68,7 +70,6 @@ namespace Visualizers
 				input.get_labels(nh);
 				ROS_DEBUG_STREAM("Setting up model.");
 
-				OpenSim::Object* muscleModel;
 
 				switch(m)
 				{
@@ -84,11 +85,7 @@ namespace Visualizers
 						throw std::invalid_argument( "I can use 1, upper or 2, lower. this is hardcoded." );
 				}
 
-				nh.param<std::string>("geometry_path", geometryPath, "/srv/data/geometry_mobl");	
-				// visualizer
-				ROS_DEBUG_STREAM("Setting up visualizer");
-				//TODO: remove!
-				OpenSim::ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/");
+				pars::setGeometryPath(nh);
 				before_vis();
 				if (!model->isValidSystem())
 				{
@@ -96,6 +93,7 @@ namespace Visualizers
 					model->initSystem();
 				}
 				visualizer = new OpenSimRT::BasicModelVisualizer(*model);
+				visualizer->setVisualizer();
 				after_vis();	
 
 				ROS_DEBUG_STREAM("onInit finished just fine.");

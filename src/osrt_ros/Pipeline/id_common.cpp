@@ -166,6 +166,7 @@ void Pipeline::IdCommon::onInit() {
 	{
 		ROS_WARN_STREAM("CREATING VISUALIZER FROM ID!");
 		visualizer = new BasicModelVisualizer(*model);
+		visualizer->setVisualizer();
 		rightGRFDecorator = new ForceDecorator(Blue, 0.002, 50);
 		//Now if the reference isnt ground I need to set the body index here. 
 		//TODO:: this is wrong, i need to add the bodyset thing for it to find it, but here it doesnt like it,  so i need to change something

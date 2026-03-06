@@ -15,6 +15,7 @@
 #include <OpenSim/Common/CSVFileAdapter.h>
 //#include <OpenSim/Common/STOFileAdapter.h>
 
+#include "osrt_ros/parameters.h"
 #include "ros/init.h"
 #include "ros/message_traits.h"
 #include "ros/node_handle.h"
@@ -184,7 +185,7 @@ class GetPointFromSomeTF
 class UIMUnode: Ros::CommonNode
 {
 	public:
-		UIMUnode(): Ros::CommonNode(true) //if true debugs
+		UIMUnode(): Ros::CommonNode(false) //if true debugs
 						  //UIMUnode(): Ros::CommonNode()
 	{}
 		std::string imuDirectionAxis;
@@ -207,7 +208,7 @@ class UIMUnode: Ros::CommonNode
 		InverseKinematics * ik;
 		IMUCalibrator * clb;
 		bool clb_is_ready =false;
-		BasicModelVisualizer *visualizer;
+		ModelObserver *visualizer;
 		bool usePositionMarkers;
 		bool visualiseIt= false;
 		//ros::Publisher re_pub;
@@ -482,14 +483,21 @@ class UIMUnode: Ros::CommonNode
 			Ros::CommonNode::onInit(0); //we are not reading from anything, we are a source
 
 			// visualizer
+			pars::setGeometryPath(nh);
 			if (visualiseIt)
 			{
 				ROS_DEBUG_STREAM("Setting up visualizer");
-				ModelVisualizer::addDirToGeometrySearchPaths(DATA_DIR + "/geometry_mobl/"); // TODO: omg this is so old, add param or something
 				visualizer = new BasicModelVisualizer(model);
-				visualizer->publish_transforms = true;
-				visualizer->tf_prefix = "ik/";
 			}
+			else
+			{
+				ROS_DEBUG_STREAM("Setting up model observer");
+				visualizer = new ModelObserver(model);
+
+			}
+			visualizer->setVisualizer();
+			visualizer->publish_transforms = true;
+			visualizer->tf_prefix = "ik/";
 			if(publish_filtered)
 			{
 				//filter
@@ -596,11 +604,19 @@ class UIMUnode: Ros::CommonNode
 						opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
 						pub_filtered.publish(msg_filtered);
 						// visualize filtered!
+						
+///TODO: Frederico, really, what is this code logic a bunch of ifs to publish the thing in all cases,,, omg, change pls
+
 						if (visualiseIt)
+						{
+							ROS_DEBUG("before vis update");
 							visualizer->update(q);
+							ROS_DEBUG("after vis update");
+						}
 						else
 						{
-							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true.");
+							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
+							visualizer->update(q);
 							ROS_DEBUG_STREAM("not showing visuals.");
 						}
 						//adding the data to the loggers
@@ -615,10 +631,16 @@ class UIMUnode: Ros::CommonNode
 					{
 						// visualize
 						if(visualiseIt)
+						{
+							ROS_DEBUG("before vis update");
 							visualizer->update(pose.q);
+							ROS_DEBUG("after vis update");
+						}
 						else
 						{
-							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true.");
+							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
+							
+							visualizer->update(pose.q);
 							ROS_DEBUG_STREAM("not showing visuals.");
 						}
 					}

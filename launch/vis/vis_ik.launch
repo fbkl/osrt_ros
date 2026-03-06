@@ -4,7 +4,7 @@
 
         <node pkg="osrt_ros" type="vis_ik" 	name="ik_visualization" output="screen">
                 <param name="model_file" 		value="$(arg model_file)" />
-		<param name="geometry_path" 		value="/srv/data/geometry_mobl" />
+		<rosparam param="geometry_path_list">['/srv/data/geometry_v3.3','/srv/host_data/Geo'] </rosparam>
 		<param name="which_model_1_2" 		value="2" />
 
 		<remap from="/ik_visualization/input_filtered" to="/ik/output_filtered"/>

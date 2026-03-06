@@ -5,6 +5,9 @@
  */
 
 #include <osrt_ros/osim_to_urdf.h>
+#include <osrt_ros/meshasstl.h>
+#include <ros/ros.h>
+
 
 SimTK::String OsimToUrdf::writeVec3(SimTK::Vec3 myvec)
 {
@@ -19,11 +22,14 @@ std::string OsimToUrdf::removeExtension(const std::string& filename) {
        return filename.substr(0, last_dot);
 }
 
-tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path)
+tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::string additional_path)
 {
 	// Create URDF XML
 	tinyxml2::XMLDocument* urdf = new tinyxml2::XMLDocument();
 	{
+
+
+		ROS_WARN("OsimToUrdf::create_model reached: I GOT HERE,, HEY BUDDY");
 
 		// Load model
 		OpenSim::Model model(osim_path);
@@ -35,15 +41,20 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path)
 		std::vector<OsimToUrdf::OsimJoint> joints;
 
 		const OpenSim::BodySet& bodies = model.getBodySet();
+		OpenSim::ModelVisualizer::addDirToGeometrySearchPaths(additional_path);
 		// Extract links (Bodies)
 		for (int i = 0; i< bodies.getSize(); ++i) {
 			const OpenSim::Body& body = bodies.get(i);
 			OsimToUrdf::OsimLink link;
 			link.name = body.getName();
 
+			ROS_DEBUG_STREAM("BODY: "<< link.name   << "what is going on?");
+
+
 			const OpenSim::PhysicalFrame* frame = model.findComponent<OpenSim::PhysicalFrame>("/bodyset/"+link.name);
 
 			if (frame) {
+				ROS_DEBUG_STREAM("Frame: "<< link.name   << "is valid. Going to iterate over attached geometries:");
 				int num_meshes = frame->getProperty_attached_geometry().size();
 				for (int j= 0; j< num_meshes ; ++j)
 				{
@@ -53,8 +64,33 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path)
 
 						this_viz.mesh_scale = mesh->get_scale_factors();
 
+						std::string meshName =  mesh->get_mesh_file();
+
+						ROS_DEBUG_STREAM("Parsing mesh: " << meshName);
+ROS_INFO("oirhjg");
 						//this_viz.mesh_filename = "/srv/data/geometry_v3.3/" + mesh->get_mesh_file(); //sadly we cant load vtp files directly into rviz so we need to convert them beforehand to stl
-						this_viz.mesh_filename = "package://model_meshes/common_geometry/" + removeExtension(mesh->get_mesh_file()) + ".stl"; // they seem to use the same meshes, idk
+		//
+						//auto inmesh = SimTK::Pathname::getAbsolutePathnameUsingSpecifiedWorkingDirectory(osim_path, mesh->get_mesh_file());
+						std::string inmesh = "";
+						SimTK::Array_<std::string> attempts;
+						bool isAbsolutePath = false;
+						if (OpenSim::ModelVisualizer::findGeometryFile(model, meshName, isAbsolutePath, attempts))
+						{
+							inmesh = attempts.back();
+						}
+						else {
+							ROS_WARN_STREAM("Looked for the meshes in the related directories but couldn't find it. Is the Geometries directory present?");
+							for (auto& attempt:attempts) ROS_WARN_STREAM( "Looked for meshes in: " << attempt );
+						
+						}
+
+						ROS_DEBUG_STREAM( "The actual file, hopefully: " << inmesh << "" );
+
+						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
+
+						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
+
+						this_viz.mesh_filename = "file://"+outmesh ; // they seem to use the same meshes, idk
 																				      //this_viz.mesh_filename = "package://model_meshes/"+ model_name+ "/" + mesh->get_mesh_file(); // they seem to use the same meshes, idk
 						auto& meshFrame = mesh->getFrame();
 						const SimTK::Transform T_offset_parent = meshFrame.findTransformInBaseFrame();

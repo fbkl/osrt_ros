@@ -33,6 +33,10 @@ find_package(catkin REQUIRED COMPONENTS
 	tf2_ros
 	urdf
 	)
+find_package(assimp REQUIRED)
+find_package(VTK REQUIRED COMPONENTS vtkIOXML vtkIOGeometry vtkIOPLY)
+include(${VTK_USE_FILE})
+
 #find_package(Simbody REQUIRED PATHS "/opt/dependencies/opensim-core/dependencies/simbody/lib/cmake/simbody/")
 
 # Define the target for Doxygen documentation
@@ -135,7 +139,7 @@ add_subdirectory(src/osrt_ros/Pipeline)
 
 ###VISUALIZER############################################################
 
-file (GLOB Visualizers_SOURCES CONFIGURE_DEPENDS "src/osrt_ros/Visualizers/*.cpp" "src/osrt_ros/events.cpp" ) # do i need events?
+file (GLOB Visualizers_SOURCES CONFIGURE_DEPENDS "src/osrt_ros/Visualizers/*.cpp" "src/osrt_ros/events.cpp" "src/osrt_ros/parameters.cpp") # do i need events?
 file (GLOB Visualizers_HEADERS CONFIGURE_DEPENDS "include/Visualizers/*.h")
 
 set(target osrtRosVisualizers)
@@ -182,6 +186,8 @@ target_link_libraries(osim_to_simple_urdf
   ${OpenSim_LIBRARIES}
   ${opensimrt_LIBRARIES}
   osrtRosPipeline
+	assimp 
+	${VTK_LIBRARIES}
 )
 
 
@@ -194,7 +200,7 @@ target_link_libraries(external_average_quaternion_node
 )
 
 
-add_executable(o_node src/osrt_ros/osimtfpublisher.cpp)
+add_executable(o_node src/osrt_ros/osimtfpublisher.cpp src/osrt_ros/parameters.cpp)
 add_dependencies(o_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
@@ -203,6 +209,12 @@ target_link_libraries(o_node
   ${OpenSim_LIBRARIES}
   ${opensimrt_LIBRARIES}
 )
+
+
+##testing assimp and vtk at the same time:
+add_executable(assimp_test src/osrt_ros/assimp.cpp)
+target_link_libraries(assimp_test assimp ${VTK_LIBRARIES})
+
 
 set(BUILD_RVIZ_PLUGIN ON)
 
@@ -214,7 +226,8 @@ if(BUILD_RVIZ_PLUGIN)
 	add_library(osrt_rviz_plugin SHARED 
 		src/osrt_ros/osim_to_simple_urdf.cpp
 		src/osrt_ros/osim_rviz_plugin.cpp
-		#	${MOC_FILES}
+		#${MOC_FILES}
+			include/osrt_ros/osim_rviz_filep.h
 		)
 	#target_include_directories(osrt_rviz_plugin PUBLIC 
 	#	${QT_INCLUDE_DIR} 
@@ -242,6 +255,8 @@ if(BUILD_RVIZ_PLUGIN)
 	  Qt5::Widgets
 	  Qt5::Core
 	  Qt5::Gui
+	assimp 
+	${VTK_LIBRARIES}
 	)
 
 endif()

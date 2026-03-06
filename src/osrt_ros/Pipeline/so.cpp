@@ -93,6 +93,7 @@ void Pipeline::So::onInit() {
 	sync.registerCallback(&Pipeline::So::callback, this);
 
 	visualizer = new BasicModelVisualizer(*model);
+	visualizer->setVisualizer();
 	ROS_DEBUG_STREAM("onInitSo");
 	//these need to be shared with the rest:
 	fmLogger = so->initializeMuscleLogger();

@@ -207,3 +207,29 @@ OpenSimRT::GRFMPrediction::Parameters pars::getparamGRFM(ros::NodeHandle nh)
 	return grfmParameters;
 
 }
+
+void pars::setGeometryPath(ros::NodeHandle nh)
+{
+				std::vector<std::string> geometryPath;
+				nh.getParam("geometry_path_list", geometryPath);	
+				if (geometryPath.size() == 0)
+				{
+					std::string default_path = "/srv/data/geometry_v3.3";
+					ROS_WARN_STREAM("You didn't set any paths to use for lookup of geometry meshes, using default hardcoded path of: "<<default_path);
+					geometryPath.push_back(default_path);
+				}
+
+				// visualizer
+				ROS_DEBUG_STREAM("Setting up visualizer");
+				for (auto& a_path:geometryPath)
+				{
+					ROS_INFO_STREAM("Adding geometry path of" << a_path);
+					OpenSim::ModelVisualizer::addDirToGeometrySearchPaths(a_path);
+				}
+
+
+
+
+}
+
+
