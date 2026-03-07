@@ -15,7 +15,7 @@ namespace osrt_rviz
 
 			QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option) override
 			{
-				QString path = QFileDialog::getOpenFileName(parent, "Select model");
+				QString path = QFileDialog::getOpenFileName(parent, "Select model", "/srv/host_data","*.osim");
 				if (!path.isEmpty()) setValue(path);
 				return nullptr;
 			}
@@ -29,7 +29,7 @@ namespace osrt_rviz
 
 			QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option) override
 			{
-				QString path = QFileDialog::getExistingDirectory(parent, "Select geometry directory");
+				QString path = QFileDialog::getExistingDirectory(parent, "Select geometry directory", "/srv/host_data", QFileDialog::ShowDirsOnly);
 				if (!path.isEmpty()) setValue(path);
 				return nullptr;
 			}
