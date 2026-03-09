@@ -11,15 +11,23 @@
 
 SimTK::String OsimToUrdf::writeVec3(SimTK::Vec3 myvec)
 {
-       return std::to_string(myvec[0]) + " " +
-               std::to_string(myvec[1]) + " " +
-               std::to_string(myvec[2]);
+	return std::to_string(myvec[0]) + " " +
+		std::to_string(myvec[1]) + " " +
+		std::to_string(myvec[2]);
+}
+
+SimTK::String OsimToUrdf::writeVec4(SimTK::Vec4 myvec)
+{
+	return std::to_string(myvec[0]) + " " +
+		std::to_string(myvec[1]) + " " +
+		std::to_string(myvec[2]) + " " +
+		std::to_string(myvec[3]);
 }
 
 std::string OsimToUrdf::removeExtension(const std::string& filename) {
-       size_t last_dot = filename.find_last_of('.');
-       if (last_dot == std::string::npos) return filename; // no extension
-       return filename.substr(0, last_dot);
+	size_t last_dot = filename.find_last_of('.');
+	if (last_dot == std::string::npos) return filename; // no extension
+	return filename.substr(0, last_dot);
 }
 
 tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::string additional_path)
@@ -67,9 +75,9 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 						std::string meshName =  mesh->get_mesh_file();
 
 						ROS_DEBUG_STREAM("Parsing mesh: " << meshName);
-ROS_INFO("oirhjg");
+						ROS_INFO("oirhjg");
 						//this_viz.mesh_filename = "/srv/data/geometry_v3.3/" + mesh->get_mesh_file(); //sadly we cant load vtp files directly into rviz so we need to convert them beforehand to stl
-		//
+						//
 						//auto inmesh = SimTK::Pathname::getAbsolutePathnameUsingSpecifiedWorkingDirectory(osim_path, mesh->get_mesh_file());
 						std::string inmesh = "";
 						SimTK::Array_<std::string> attempts;
@@ -81,7 +89,7 @@ ROS_INFO("oirhjg");
 						else {
 							ROS_WARN_STREAM("Looked for the meshes in the related directories but couldn't find it. Is the Geometries directory present?");
 							for (auto& attempt:attempts) ROS_WARN_STREAM( "Looked for meshes in: " << attempt );
-						
+
 						}
 
 						ROS_DEBUG_STREAM( "The actual file, hopefully: " << inmesh << "" );
@@ -91,14 +99,68 @@ ROS_INFO("oirhjg");
 						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
 
 						this_viz.mesh_filename = "file://"+outmesh ; // they seem to use the same meshes, idk
-																				      //this_viz.mesh_filename = "package://model_meshes/"+ model_name+ "/" + mesh->get_mesh_file(); // they seem to use the same meshes, idk
+											     //this_viz.mesh_filename = "package://model_meshes/"+ model_name+ "/" + mesh->get_mesh_file(); // they seem to use the same meshes, idk
 						auto& meshFrame = mesh->getFrame();
 						const SimTK::Transform T_offset_parent = meshFrame.findTransformInBaseFrame();
 						this_viz.mesh_offset = T_offset_parent.p();
+
+						this_viz.mesh_color = mesh->get_Appearance().get_color();
+						this_viz.mesh_opacity = mesh->get_Appearance().get_opacity();
+						auto angles_ = T_offset_parent.R().convertRotationToBodyFixedXYZ(); 
+						ROS_WARN_STREAM("" << angles_);
+						this_viz.mesh_rpy = angles_;
+
+
 						link.visuals.push_back(this_viz);
 					}
 				}
 			}
+
+
+			// After your existing frame mesh loop, still inside the body loop:
+			//auto offset_frames = body.findListT<OpenSim::PhysicalOffsetFrame>();
+			auto offset_frames = body.getComponentList<OpenSim::PhysicalOffsetFrame>();
+			for (const auto& pof : offset_frames) {
+				int num_pof_meshes = pof.getProperty_attached_geometry().size();
+				for (int j = 0; j < num_pof_meshes; ++j) {
+					auto mesh = dynamic_cast<const OpenSim::Mesh*>(&pof.get_attached_geometry(j));
+					if (mesh) {
+						OsimToUrdf::OsimLinkVisual this_viz;
+						this_viz.mesh_scale = mesh->get_scale_factors();
+						std::string meshName = mesh->get_mesh_file();
+
+						std::string inmesh = "";
+						SimTK::Array_<std::string> attempts;
+						bool isAbsolutePath = false;
+						if (OpenSim::ModelVisualizer::findGeometryFile(model, meshName, isAbsolutePath, attempts))
+							inmesh = attempts.back();
+						else
+							ROS_WARN_STREAM("Couldn't find mesh for PhysicalOffsetFrame geometry: " << meshName);
+
+						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
+						if (writeMeshAsStl(inmesh, outmesh) != 0)
+							std::cerr << "failed to convert mesh " << inmesh << std::endl;
+
+						this_viz.mesh_filename = "file://" + outmesh;
+
+						const SimTK::Transform T_offset = pof.findTransformInBaseFrame();
+						auto angles_ = T_offset.R().convertRotationToBodyFixedXYZ(); 
+						ROS_WARN_STREAM("" << angles_);
+						this_viz.mesh_offset = T_offset.p();
+						this_viz.mesh_rpy = angles_;
+						this_viz.mesh_color = mesh->get_Appearance().get_color();
+						this_viz.mesh_opacity = mesh->get_Appearance().get_opacity();
+						link.visuals.push_back(this_viz);
+					}
+				}
+			}
+
+
+
+
+
+
+
 
 			links.push_back(link);
 		}
@@ -155,7 +217,8 @@ ROS_INFO("oirhjg");
 					// Optional: Add origin
 					tinyxml2::XMLElement* origin = urdf->NewElement("origin");
 					origin->SetAttribute("xyz", writeVec3(visual_i.mesh_offset).c_str());
-					origin->SetAttribute("rpy", "0 0 0");
+					//origin->SetAttribute("rpy", "0 0 0");
+					origin->SetAttribute("rpy", writeVec3(visual_i.mesh_rpy).c_str());
 					visual->InsertEndChild(origin);
 
 					// It will look red for some reason and that upsets me.
@@ -163,7 +226,8 @@ ROS_INFO("oirhjg");
 					material->SetAttribute("name", "bone");
 
 					tinyxml2::XMLElement* color = urdf->NewElement("color");
-					color->SetAttribute("rgba", "0.792156862745098 0.819607843137255 0.933333333333333 1" );
+					//color->SetAttribute("rgba", "0.792156862745098 0.819607843137255 0.933333333333333 1" );
+					color->SetAttribute("rgba", (writeVec3(visual_i.mesh_color) + " " + std::to_string(visual_i.mesh_opacity)).c_str() );
 					material->InsertEndChild(color);
 
 					visual->InsertEndChild(material);
@@ -197,7 +261,7 @@ ROS_INFO("oirhjg");
 			robot->InsertEndChild(joint_elem);
 		}
 	}
-		return urdf;
+	return urdf;
 
 }
 

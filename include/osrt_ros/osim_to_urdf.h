@@ -19,6 +19,10 @@ struct OsimLinkVisual {
 	SimTK::Vec3 mesh_offset;
 	SimTK::Vec3 mesh_scale;
 	SimTK::Vec4 mesh_ori;
+	//SimTK::Vec4 mesh_color;
+	SimTK::Vec3 mesh_color;
+	double mesh_opacity;
+	SimTK::Vec3 mesh_rpy;
 };
 struct OsimLink {
 	std::string name;
@@ -34,6 +38,8 @@ struct OsimJoint {
 };
 
 SimTK::String writeVec3(SimTK::Vec3 myvec);
+
+SimTK::String writeVec4(SimTK::Vec4 myvec);
 
 std::string removeExtension(const std::string& filename);
 
