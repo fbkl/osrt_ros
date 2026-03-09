@@ -38,7 +38,7 @@ int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmes
 		std::cout << "Assimp: "<< std::endl;
 		Assimp::Importer importer;
 		Assimp::Exporter exporter;
-		std::string mesh_format = "collada";
+		std::string mesh_format = "stl";
 		const aiScene* scene = importer.ReadFile(intermediate_mesh_name, aiProcess_Triangulate);
 		if (!scene)
 		{

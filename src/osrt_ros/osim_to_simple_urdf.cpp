@@ -94,7 +94,7 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 						ROS_DEBUG_STREAM( "The actual file, hopefully: " << inmesh << "" );
 
-						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
+						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".stl";
 
 						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
 
@@ -137,7 +137,7 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 						else
 							ROS_WARN_STREAM("Couldn't find mesh for PhysicalOffsetFrame geometry: " << meshName);
 
-						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
+						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".stl";
 						if (writeMeshAsStl(inmesh, outmesh) != 0)
 							std::cerr << "failed to convert mesh " << inmesh << std::endl;
 
@@ -197,9 +197,11 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 		urdf->InsertEndChild(robot);
 
 		// Add links
+		int k = 0;
 		for (const auto& link : links) {
 			tinyxml2::XMLElement* link_elem = urdf->NewElement("link");
 			link_elem->SetAttribute("name", link.name.c_str());
+
 
 			for (const auto& visual_i: link.visuals)
 				if (!visual_i.mesh_filename.empty()) {
@@ -223,11 +225,12 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 					// It will look red for some reason and that upsets me.
 					tinyxml2::XMLElement* material = urdf->NewElement("material");
-					material->SetAttribute("name", "bone");
+					material->SetAttribute("name", ("bone"+std::to_string(++k)).c_str());
 
 					tinyxml2::XMLElement* color = urdf->NewElement("color");
-					//color->SetAttribute("rgba", "0.792156862745098 0.819607843137255 0.933333333333333 1" );
+					//color->SetAttribute("rgba", "0.292156862745098 0.819607843137255 0.933333333333333 1" );
 					color->SetAttribute("rgba", (writeVec3(visual_i.mesh_color) + " " + std::to_string(visual_i.mesh_opacity)).c_str() );
+					//color->SetAttribute("rgba", (writeVec3(visual_i.mesh_color) + " 1").c_str() );
 					material->InsertEndChild(color);
 
 					visual->InsertEndChild(material);
