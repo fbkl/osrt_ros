@@ -22,7 +22,6 @@
 //#include "Settings.h"
 #include "SignalProcessing.h"
 #include "Utils.h"
-#include "Visualization.h"
 #include <Actuators/Thelen2003Muscle.h>
 #include <Common/TimeSeriesTable.h>
 #include <OpenSim/Common/STOFileAdapter.h>
@@ -139,7 +138,6 @@ void Pipeline::IdCommon::onInit() {
 	sub1.registerCallback(&Pipeline::IdCommon::callback1,this);
 
 
-	nh.getParam("visualise", use_visualizer);
 	// when i am running this it is already initialized, so i have to add the loggers to the list I want to save afterwards
 	// TODO: set the column labels, or it will break when you try to use them!
 	message_filters::TimeSynchronizer<opensimrt_msgs::CommonTimed, opensimrt_msgs::CommonTimed> sync(sub, sub2, 500);
@@ -160,28 +158,6 @@ void Pipeline::IdCommon::onInit() {
 		grfLeftIndexes = Osb::generateIndexes(grfLeftLabels,input2_labels);
 		ROS_INFO_STREAM("right");
 		grfRightIndexes = Osb::generateIndexes(grfRightLabels, input2_labels);
-	}
-	// visualizer
-	if (usesVisualizarFromIdCommon()&& use_visualizer)
-	{
-		ROS_WARN_STREAM("CREATING VISUALIZER FROM ID!");
-		visualizer = new BasicModelVisualizer(*model);
-		visualizer->setVisualizer();
-		rightGRFDecorator = new ForceDecorator(Blue, 0.002, 50);
-		//Now if the reference isnt ground I need to set the body index here. 
-		//TODO:: this is wrong, i need to add the bodyset thing for it to find it, but here it doesnt like it,  so i need to change something
-		rightGRFDecorator->setOriginByName(*model, grfRightFootPar.pointExpressedInBody);
-		ROS_WARN_STREAM("Point expressed in body R:"<<grfRightFootPar.pointExpressedInBody);
-		//
-
-
-		//rightGRFDecorator->setOriginByName(*model, grfRightFootPar.appliedToBody);
-		visualizer->addDecorationGenerator(rightGRFDecorator);
-		leftGRFDecorator = new ForceDecorator(Red, 0.002, 50);
-		leftGRFDecorator->setOriginByName(*model, grfLeftFootPar.pointExpressedInBody);
-		//leftGRFDecorator->setOriginByName(*model, grfLeftFootPar.appliedToBody);
-		
-		visualizer->addDecorationGenerator(leftGRFDecorator);
 	}
 	//CRAZY DEBUG
 	if (input.labels.size() == 0)
@@ -304,26 +280,6 @@ void Pipeline::IdCommon::run(const std_msgs::Header h , double t, std::vector<Si
 	ROS_DEBUG_STREAM("ID ran ok");
 	//ROS_INFO_STREAM("here2");;
 
-	// visualization
-	if (usesVisualizarFromIdCommon() && use_visualizer)
-	{
-		try {
-	//ROS_INFO_STREAM("here3");;
-
-			visualizer->fps->actual_delay = (ros::Time::now().toSec() -h.stamp.toSec())*1000;
-			visualizer->update(q);
-			// this expects the point to be in global coordinates since the decorator does not have an origin variable.
-			rightGRFDecorator->update(grfRightWrench.point,
-					grfRightWrench.force);
-			leftGRFDecorator->update(grfLeftWrench.point, grfLeftWrench.force);
-			ROS_DEBUG_STREAM("visualizer ran ok.");
-		}
-		catch (std::exception& e)
-		{
-			ROS_ERROR_STREAM("Error in visualizer. cannot show data!!!!!" << e.what());
-			use_visualizer = false;
-		}
-	}
 	try
 	{
 	//ROS_INFO_STREAM("here4");;

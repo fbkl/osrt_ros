@@ -9,7 +9,6 @@
 //#include "Settings.h"
 #include "SignalProcessing.h"
 #include "Utils.h"
-#include "Visualization.h"
 #include <Actuators/Thelen2003Muscle.h>
 #include <Common/TimeSeriesTable.h>
 #include <OpenSim/Common/STOFileAdapter.h>

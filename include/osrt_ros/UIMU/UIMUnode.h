@@ -72,8 +72,8 @@ class GetPointFromSomeTF
 {
 	public:
 		//tf::TransformListener tl;
-  tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener;
+		tf2_ros::Buffer tfBuffer;
+		tf2_ros::TransformListener tfListener;
 		std::vector<std::string> markerNames;
 		std::vector<std::string> tfNames;
 		ros::NodeHandle nh{"~/marker"};
@@ -83,12 +83,12 @@ class GetPointFromSomeTF
 		std::string world_tf_reference;
 		double tf_timeout;
 		GetPointFromSomeTF(): tfListener(tfBuffer) 
-		{
-			
-			nh.param<double>("tf_timeout",tf_timeout,0.05);
-			nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
-			nh.param<std::string>("tf_frame_prefix",tf_frame_prefix,"not_set");
-			try{	
+	{
+
+		nh.param<double>("tf_timeout",tf_timeout,0.05);
+		nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
+		nh.param<std::string>("tf_frame_prefix",tf_frame_prefix,"not_set");
+		try{	
 			XmlRpc::XmlRpcValue markerList;
 			nh.getParam("observation_order", markerList);
 			if(markerList.valid())
@@ -134,22 +134,22 @@ class GetPointFromSomeTF
 					transform.transform.translation.y = y;
 					transform.transform.translation.z = z;
 					latest_marker_tfs[this_marker_tf] = transform;
-						
+
 
 					ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE MARKER AT LEAST"<<reset);
-				  //ROS_ASSERT(markerDef[i].getType() == XmlRpc::XmlRpcValue::TypeString);
+					//ROS_ASSERT(markerDef[i].getType() == XmlRpc::XmlRpcValue::TypeString);
 				}
 				//for (auto& marker:markerNames)
 				//	marker+=tf_frame_prefix;
 			}
-			}
-			catch(XmlRpc::XmlRpcException& e)
-			{
-				ROS_ERROR_STREAM("AR: Could not setup markers" << e.getMessage());
-			}
-			ROS_INFO("AR: Finished serring up markers");
-
 		}
+		catch(XmlRpc::XmlRpcException& e)
+		{
+			ROS_ERROR_STREAM("AR: Could not setup markers" << e.getMessage());
+		}
+		ROS_INFO("AR: Finished serring up markers");
+
+	}
 
 		SimTK::Array_<SimTK::Vec3> get_translations()
 		{
@@ -162,7 +162,7 @@ class GetPointFromSomeTF
 					geometry_msgs::TransformStamped transform;
 					//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
 					transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
-					//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+																			     //transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 					latest_marker_tfs[this_marker_tf] = transform;
 				}
 				catch (tf::TransformException& ex){
@@ -186,7 +186,7 @@ class UIMUnode: Ros::CommonNode
 {
 	public:
 		UIMUnode(): Ros::CommonNode(false) //if true debugs
-						  //UIMUnode(): Ros::CommonNode()
+						   //UIMUnode(): Ros::CommonNode()
 	{}
 		std::string imuDirectionAxis;
 		std::string imuBaseBody;
@@ -267,10 +267,10 @@ class UIMUnode: Ros::CommonNode
 			nh.param<int>("delay", delay, 0);
 
 			if( usePositionMarkers)
-				{
-					ROS_INFO_STREAM("Also using position Markers!");
-					tfPointGetter = new GetPointFromSomeTF;
-				}
+			{
+				ROS_INFO_STREAM("Also using position Markers!");
+				tfPointGetter = new GetPointFromSomeTF;
+			}
 
 			ROS_DEBUG_STREAM("Finished getting params.");
 
@@ -311,8 +311,8 @@ class UIMUnode: Ros::CommonNode
 				ROS_WARN("Heading Reconfigure request warning: calibrator not yet defined.");
 
 		}
-			vector<InverseKinematics::MarkerTask> markerTasks;
-			vector<InverseKinematics::IMUTask> imuTasks;
+		vector<InverseKinematics::MarkerTask> markerTasks;
+		vector<InverseKinematics::IMUTask> imuTasks;
 		void define_tasks()
 		{
 
@@ -461,10 +461,10 @@ class UIMUnode: Ros::CommonNode
 			// calibrator
 			ROS_DEBUG_STREAM("Setting up IMUCalibrator");
 			clb = new IMUCalibrator(model, driver, imuObservationOrder);
-			
+
 
 			doCalibrate();
-			
+
 			define_tasks();
 			start_ik();
 

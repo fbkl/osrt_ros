@@ -43,7 +43,6 @@ namespace Pipeline
 			OpenSimRT::InverseDynamics* id;
 			OpenSimRT::ForceDecorator *rightGRFDecorator,*leftGRFDecorator;
 			OpenSim::Model* model;
-			OpenSimRT::BasicModelVisualizer* visualizer;
 			OpenSimRT::LowPassSmoothFilter* ikfilter;
 			std::vector<std::string> grfRightLabels, grfLeftLabels;
 			
@@ -51,7 +50,6 @@ namespace Pipeline
 			boost::array<int,9> grfLeftIndexes, grfRightIndexes;
 
 			bool use_grfm_filter;
-			bool use_visualizer=true;
 			int memory, delay, splineOrder;
 			double cutoffFreq;
 
@@ -59,7 +57,6 @@ namespace Pipeline
 			bool see(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
 			void write_();
-			virtual bool usesVisualizarFromIdCommon() { return true;}
 
 			void print_vec(std::vector<std::string> vs);
 			virtual void publish_additional_topics(std_msgs::Header h, SimTK::Vector q, std::vector<OpenSimRT::ExternalWrench::Input> wV)
