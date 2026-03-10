@@ -233,11 +233,13 @@ namespace OpenSimRT {
 							while (i < numSamples) {
 								// get frame measurements. `getData()` is common to all input
 								// drivers
-								std::cout << "am i stuck here?" << std::endl;
-								std::vector<UIMUData> aa = m_driver->getData();
-								for(auto uimudata_i:aa)
-									std::cout << uimudata_i << ", ";
-								std::cout <<  std::endl;
+								
+								//this works, no need for such verbosity anymore. also, why not use ros logs?
+								//std::cout << "am i stuck here?" << std::endl;
+								//std::vector<UIMUData> aa = m_driver->getData();
+								//for(auto uimudata_i:aa)
+								//	std::cout << uimudata_i << ", ";
+								//std::cout <<  std::endl;
 								initIMUDataTable.push_back(m_driver->getData());
 								++i;
 							}

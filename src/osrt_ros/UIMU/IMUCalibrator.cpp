@@ -253,6 +253,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		// get frame of imu body
 		const PhysicalFrame* baseFrame = nullptr;
 		if (!(baseFrame = model.findComponent<PhysicalFrame>(baseImuName))) {
+			ROS_FATAL_STREAM("Could not find imu for base: " << baseImuName);
 			THROW_EXCEPTION(
 					"Frame of given body name does not exist in the model.");
 		}

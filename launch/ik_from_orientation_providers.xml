@@ -12,12 +12,14 @@
 	<!--arg name="model_file" 		default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
 	<arg name="model_file" 		default="/srv/host_data/fk.osim" />
 	<arg name="use_ar"		default="false"/>
+	<arg name="imu_base_body" 		default="pelvis" />
+	<arg name="name_tag" 			default="lower" />
 	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" output="screen" >
 		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
 		<!-- param name="resample_period" 		value="0.01" / -->
 		<param name="model_file" 		value="$(arg model_file)" />
 		<!--param name="model_file" 		value="scale/model_scaled.osim" / -->
-		<param name="imu_base_body" 		value="pelvis" />
+		<param name="imu_base_body" 		value="$(arg imu_base_body)" />
 
 		<param name="visualise"			value="$(arg visualise)"/>
 		<!-- OK, this is confusing as hell-->
@@ -36,8 +38,8 @@
 
 		<param name="imu_direction_axis" 		value="-z" />
 		<param name="rate" 				value="$(arg freq)" />
-		<param name="logger_filename_ik" 		value="_ik_lower" />
-		<param name="logger_filename_imus" 		value="_imus_lower" />
+		<param name="logger_filename_ik" 		value="_ik_$(arg name_tag)" />
+		<param name="logger_filename_imus" 		value="_imus_$(arg name_tag)" />
 		<param name="data_save_dir" 		value="/tmp" />
 		<remap from="output" 		to="/ik/output"/>
 		<remap from="output_filtered" 	to="/ik/output_filtered"/>
