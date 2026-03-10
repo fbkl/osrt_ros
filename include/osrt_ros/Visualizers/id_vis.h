@@ -13,6 +13,8 @@ namespace Visualizers
 		void after_vis() {
 			visualizer->tf_prefix = "id/";
 			model_reset();
+			Visualizers::GrfVis::after_vis();
+			
 		}
 	};
 
