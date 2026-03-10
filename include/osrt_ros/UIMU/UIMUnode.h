@@ -208,7 +208,6 @@ class UIMUnode: Ros::CommonNode
 		InverseKinematics * ik;
 		IMUCalibrator * clb;
 		bool clb_is_ready =false;
-		ModelObserver *visualizer;
 		bool usePositionMarkers;
 		bool visualiseIt= false;
 		//ros::Publisher re_pub;
@@ -482,23 +481,6 @@ class UIMUnode: Ros::CommonNode
 			//I want to start the service after we set the labels, otherwise it might reply with an empty message.
 			Ros::CommonNode::onInit(0); //we are not reading from anything, we are a source
 
-			// visualizer
-			pars::setGeometryPath(nh);
-			if (visualiseIt)
-			{
-				ROS_DEBUG_STREAM("Setting up visualizer");
-				visualizer = new BasicModelVisualizer(model);
-			}
-			else
-			{
-				ROS_DEBUG_STREAM("Setting up model observer");
-				visualizer = new ModelObserver(model);
-
-			}
-			visualizer->setVisualizer();
-			//this is a slow idea
-			visualizer->publish_transforms = false;
-			visualizer->tf_prefix = "ik/";
 			if(publish_filtered)
 			{
 				//filter
@@ -606,44 +588,15 @@ class UIMUnode: Ros::CommonNode
 						opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
 						pub_filtered.publish(msg_filtered);
 						// visualize filtered!
-						
-///TODO: Frederico, really, what is this code logic a bunch of ifs to publish the thing in all cases,,, omg, change pls
 
-						if (visualiseIt)
-						{
-							ROS_DEBUG("before vis update");
-							visualizer->update(q);
-							ROS_DEBUG("after vis update");
-						}
-						else
-						{
-							//ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
-							//visualizer->update(q);
-							ROS_DEBUG_STREAM("not showing visuals.");
-						}
+						///TODO: Frederico, really, what is this code logic a bunch of ifs to publish the thing in all cases,,, omg, change pls
+
 						//adding the data to the loggers
 						if (isRecording())
 						{
 							qLogger.appendRow(pose.t,~q);
 							qDotLogger.appendRow(pose.t,~qDot);
 							qDDotLogger.appendRow(pose.t,~qDDot);
-						}
-					}
-					else
-					{
-						// visualize
-						if(visualiseIt)
-						{
-							ROS_DEBUG("before vis update");
-							visualizer->update(pose.q);
-							ROS_DEBUG("after vis update");
-						}
-						else
-						{
-							//ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
-							
-							//visualizer->update(pose.q);
-							ROS_DEBUG_STREAM("not showing visuals.");
 						}
 					}
 					// record
@@ -657,7 +610,7 @@ class UIMUnode: Ros::CommonNode
 					previousDt = Dt;
 					if(!ros::ok())
 						break;
-					//ros::spinOnce();
+					ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
 
 					std_msgs::Int64 time_ik_msg;
 					time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
