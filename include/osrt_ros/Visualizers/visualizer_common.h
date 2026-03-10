@@ -33,17 +33,18 @@ namespace Visualizers
 			}
 			ros::NodeHandle nh{"~"};
 			std::string modelFile;
-			OpenSimRT::BasicModelVisualizer *visualizer=nullptr;
+			OpenSimRT::ModelObserver *visualizer=nullptr;
 			OpenSim::Model* model = nullptr;	
 			int m; // 1 is upper 2 is under...
+			bool visualiseIt= false;
 			ros::Subscriber sub, sub_filtered;
 			Ros::Reshuffler input;
-				OpenSim::Object* muscleModel;
+			OpenSim::Object* muscleModel;
 
 			void set_delay_from_header(ros::Time t)
 			{
 				if (visualizer)
-				visualizer->fps->actual_delay = (ros::Time::now().toSec() - t.toSec())*1000; // this is in ms
+					visualizer->fps->actual_delay = (ros::Time::now().toSec() - t.toSec())*1000; // this is in ms
 
 			}
 			void get_params()
@@ -63,7 +64,7 @@ namespace Visualizers
 			{
 				get_params();
 				model = new OpenSim::Model(modelFile);
-				
+
 				input.model = model;
 				Ros::SaverNode::onInit();
 				// setup model
@@ -92,8 +93,20 @@ namespace Visualizers
 					ROS_WARN_STREAM("model is not valid yet for some reason, trying to make it valid");
 					model->initSystem();
 				}
-				visualizer = new OpenSimRT::BasicModelVisualizer(*model);
+				nh.param<bool>("visualise", visualiseIt, true);
+				if (visualiseIt)
+				{
+					ROS_DEBUG_STREAM("Setting up visualizer");
+					visualizer = new OpenSimRT::BasicModelVisualizer(*model);
+				}
+				else
+				{
+					ROS_DEBUG_STREAM("Setting up model observer");
+					visualizer = new OpenSimRT::ModelObserver(*model);
+
+				}
 				visualizer->setVisualizer();
+				visualizer->publish_transforms = true;
 				after_vis();	
 
 				ROS_DEBUG_STREAM("onInit finished just fine.");
@@ -105,9 +118,8 @@ namespace Visualizers
 				model->initSystem();
 				ROS_WARN_ONCE("Not implemented for VisualizerCommon. initial setup of the thing");
 			}
-			virtual void after_vis()
+			void model_reset()
 			{
-				ROS_WARN_ONCE("Not implemented for VisualizerCommon. post-setup of the thing");
 				int i =0;
 				SimTK::Vector q(input.labels.size());
 				for (auto label:input.labels)
@@ -121,6 +133,15 @@ namespace Visualizers
 				}
 				else
 					ROS_ERROR("NO VISUALIZER DEFINED");
+
+
+
+			}
+
+			virtual void after_vis()
+			{
+				ROS_WARN_ONCE("Not implemented for VisualizerCommon. post-setup of the thing");
+				model_reset();
 			}
 
 			virtual void after_callback()

@@ -25,7 +25,8 @@ void Visualizers::GrfVis::after_vis()
 	if (!right_body_name.empty())
 	{
 		rightGRFDecorator->setOriginByName(*model, right_body_name);
-		visualizer->addDecorationGenerator(rightGRFDecorator);
+		OpenSimRT::BasicModelVisualizer* v = dynamic_cast<OpenSimRT::BasicModelVisualizer*>(visualizer); //TODO: Untested. Hopefully it works and adds the decorators. Another possibility is to have another pointer for the BasicModelVisualizer and then just add that instead, idk
+		if (v) v->addDecorationGenerator(rightGRFDecorator);
 	}
 	else
 	{
@@ -39,7 +40,8 @@ void Visualizers::GrfVis::after_vis()
 	if (!left_body_name.empty())
 	{
 		leftGRFDecorator->setOriginByName(*model, left_body_name);
-		visualizer->addDecorationGenerator(leftGRFDecorator);
+		OpenSimRT::BasicModelVisualizer* v = dynamic_cast<OpenSimRT::BasicModelVisualizer*>(visualizer);
+		if (v) v->addDecorationGenerator(leftGRFDecorator);
 	}
 	else
 	{

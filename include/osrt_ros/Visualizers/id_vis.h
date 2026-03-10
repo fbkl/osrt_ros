@@ -10,6 +10,10 @@ namespace Visualizers
 		
 		void callback_multi(const opensimrt_msgs::MultiMessageConstPtr& message);
 		void after_callback() {};
+		void after_vis() {
+			visualizer->tf_prefix = "id/";
+			model_reset();
+		}
 	};
 
 }

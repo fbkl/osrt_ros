@@ -496,7 +496,8 @@ class UIMUnode: Ros::CommonNode
 
 			}
 			visualizer->setVisualizer();
-			visualizer->publish_transforms = true;
+			//this is a slow idea
+			visualizer->publish_transforms = false;
 			visualizer->tf_prefix = "ik/";
 			if(publish_filtered)
 			{
@@ -580,14 +581,15 @@ class UIMUnode: Ros::CommonNode
 					ROS_DEBUG_STREAM("T (pose.t):" << pose.t);
 
 					int i = 0;
-					for (double joint_angle:pose.q)
-					{
-						ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
-						std_msgs::Float64 j_msg;
-						j_msg.data = joint_angle*180/3.14159265;
-						plottable_outputs[i].publish(j_msg);
-						i++;
-					}
+					if (false)
+						for (double joint_angle:pose.q)
+						{
+							ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
+							std_msgs::Float64 j_msg;
+							j_msg.data = joint_angle*180/3.14159265;
+							plottable_outputs[i].publish(j_msg);
+							i++;
+						}
 
 					pub.publish(msg);
 					if(publish_filtered)
@@ -615,8 +617,8 @@ class UIMUnode: Ros::CommonNode
 						}
 						else
 						{
-							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
-							visualizer->update(q);
+							//ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
+							//visualizer->update(q);
 							ROS_DEBUG_STREAM("not showing visuals.");
 						}
 						//adding the data to the loggers
@@ -638,9 +640,9 @@ class UIMUnode: Ros::CommonNode
 						}
 						else
 						{
-							ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
+							//ROS_WARN_ONCE("Not showing visuals. To turn it on set 'visualise' param to true. But still publishing transforms right?");
 							
-							visualizer->update(pose.q);
+							//visualizer->update(pose.q);
 							ROS_DEBUG_STREAM("not showing visuals.");
 						}
 					}
@@ -655,7 +657,7 @@ class UIMUnode: Ros::CommonNode
 					previousDt = Dt;
 					if(!ros::ok())
 						break;
-					ros::spinOnce();
+					//ros::spinOnce();
 
 					std_msgs::Int64 time_ik_msg;
 					time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();

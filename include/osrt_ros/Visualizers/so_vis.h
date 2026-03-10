@@ -21,6 +21,10 @@ namespace Visualizers
 			void callback(const opensimrt_msgs::DualConstPtr& message);
 			void callback_multi(const opensimrt_msgs::MultiMessageConstPtr& message);
 			void callback_filtered(const opensimrt_msgs::DualPosConstPtr& message); 
+		void after_vis() {
+			visualizer->tf_prefix = "so/";
+			model_reset();
+		}
 
 			//here it has to be ordered!
 			OpenSim::TimeSeriesTable * soLogger;

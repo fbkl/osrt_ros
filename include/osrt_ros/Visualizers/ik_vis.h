@@ -19,6 +19,10 @@ namespace Visualizers
 			sub_filtered = nh.subscribe<opensimrt_msgs::PosVelAccTimed>("input_filtered",1, &Visualizers::IkVis::callback_filtered, this);
 
 		};
+		void after_vis() {
+			visualizer->tf_prefix = "ik/";
+			model_reset();
+		}
 		void after_callback() {};
 	};
 
