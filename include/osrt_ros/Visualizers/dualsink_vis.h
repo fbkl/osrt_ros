@@ -9,6 +9,8 @@
 #include "message_filters/subscriber.h"
 #include "changeable_time_sequencer.h"
 #include <memory>
+#include "ros/service_server.h"
+#include <dynamic_reconfigure/server.h>
 
 namespace Visualizers
 {
@@ -34,7 +36,6 @@ namespace Visualizers
 				sub_multi.subscribe(nh, "multi_input", 100);
 				seq.registerCallback(&Visualizers::DualSinkVis::callback_multi, this);
 				ROS_INFO_STREAM("added subscribers ok.");
-				
 			}
 			virtual void after_callback() {};
 	};
