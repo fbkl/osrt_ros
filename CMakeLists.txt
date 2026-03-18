@@ -4,6 +4,7 @@ project(osrt_ros)
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 add_compile_options(-std=c++17 -O3 -g -Wall -pedantic -Wno-undef)
+add_compile_definitions(register=) ## this was removed, actually my code shouldnt be compiling in amd64 either
 #add_compile_options(-std=c++17 -O0 -g)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -O3 -g")
 	

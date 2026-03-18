@@ -19,7 +19,7 @@
 #include <tf/transform_listener.h>
 
 // Driver code
-CometaServer::CometaServer (int PORT = 8080, int MAXLINE = 4096) {
+CometaServer::CometaServer (int PORT, int MAXLINE) {
 
 		ROS_INFO("Cometa server started");
 		//socklen_t sockfd;

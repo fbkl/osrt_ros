@@ -13,7 +13,7 @@
 
 class CometaServer: public OrientationProvider {
  public:
-	CometaServer(int, int);
+	CometaServer(int PORT= 8080, int MAXLINE= 4096);
 	~CometaServer();
 	char* buffer;
 	char* hello;
