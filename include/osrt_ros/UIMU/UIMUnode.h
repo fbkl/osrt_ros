@@ -517,6 +517,7 @@ class UIMUnode: Ros::CommonNode
 		}
 
 		void run() {
+					int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
 			try { // main loop
 				while (!driver->shouldTerminate()) {
 					opensimrt_msgs::CommonTimed msg;
@@ -562,7 +563,6 @@ class UIMUnode: Ros::CommonNode
 					ROS_DEBUG_STREAM("delta_t   :" << Dt);
 					ROS_DEBUG_STREAM("T (pose.t):" << pose.t);
 
-					int i = 0;
 					if (false)
 						for (double joint_angle:pose.q)
 						{
@@ -570,7 +570,6 @@ class UIMUnode: Ros::CommonNode
 							std_msgs::Float64 j_msg;
 							j_msg.data = joint_angle*180/3.14159265;
 							plottable_outputs[i].publish(j_msg);
-							i++;
 						}
 
 					pub.publish(msg);
@@ -610,7 +609,8 @@ class UIMUnode: Ros::CommonNode
 					previousDt = Dt;
 					if(!ros::ok())
 						break;
-					ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
+					if(i%10 == 0)  // we answer calls only every 10 loops, maybe this is faster idk
+						ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
 
 					std_msgs::Int64 time_ik_msg;
 					time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -621,6 +621,8 @@ class UIMUnode: Ros::CommonNode
 					std_msgs::Int64 time_msg;
 					time_msg.data = std::chrono::duration_cast<std::chrono::microseconds>(t3 -t1).count();
 					time_pub.publish(time_msg);
+					
+					i++;
 					r->sleep();
 				}
 			} catch (std::exception& e) {
