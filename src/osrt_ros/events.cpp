@@ -1,5 +1,5 @@
 /**
- * @author      : osrruser1 <osrtusr1@docker>
+ * @author      : osrruser1 <osrtusr1[at]docker>
  * @file        : events.cpp
  * @date     : Friday Mar 17, 2023 14:18:52 CET
  */
