@@ -23,7 +23,7 @@
  * timestamps and vice-versa.
  *
  * @author Filip Konstantinos <filip.k@ece.upatras.gr>
- * @original source: https://stackoverflow.com/a/65149566
+ * original source: https://stackoverflow.com/a/65149566
  */
 #pragma once
 
