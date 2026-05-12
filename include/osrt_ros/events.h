@@ -1,5 +1,5 @@
 /**
- * @author      : osrtuser <osrtusr1@docker>
+ * @author      : osrtuser <osrtusr1[at]docker>
  * @file        : events.h
  * @date     : Friday Mar 17, 2023 11:37:23 CET
  */

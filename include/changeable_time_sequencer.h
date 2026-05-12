@@ -1,7 +1,7 @@
 /**
  * @author      : $USER ($USER@55ddcade7a7b)
- * @file        : changeable_time_sequencer
- * @created     : Thursday Sep 05, 2024 12:37:53 UTC
+ * @file        : changeable_time_sequencer.h
+ * @date     : Thursday Sep 05, 2024 12:37:53 UTC
  *
  * idk, i think i can change this delay it should still work, right?
  *

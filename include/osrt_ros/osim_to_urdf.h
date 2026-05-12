@@ -1,6 +1,6 @@
 /**
  * @author      : $USER (osruser [at]dbefbc0c19ed)
- * @file        : some_tfs.cpp
+ * @file        : osim_to_urdf.h
  * @date     : Tuesday Nov 14, 2023 16:01:58 UTC
  */
 #ifndef OSIMTOURDF_H
