@@ -54,6 +54,7 @@ const std::string yellow("\033[1;33m");
 const std::string cyan("\033[0;36m");
 const std::string magenta("\033[0;35m");
 const std::string reset("\033[0m");
+#define ROS_YE(x) ROS_INFO_STREAM( yellow << x << reset)
 
 inline constexpr auto hash_djb2a(const std::string_view sv) {
 	unsigned long hash{ 5381 };
@@ -90,7 +91,7 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 	for (auto imu_name:imuBodiesObservationOrder) 
 	{
 		std::string calib_serv_name =tf_prefix+imu_name+"/pose_average/calibrate_pose"; 
-		ROS_WARN_STREAM("calibration service name:"<< calib_serv_name);
+		ROS_YE("calibration service name:"<< calib_serv_name);
 		autosrv this_srv;
 		this_srv.imu = imu_name;
 		this_srv.calib_client = ghandle.serviceClient<std_srvs::Empty>(calib_serv_name, true);
@@ -147,7 +148,8 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfn
 
 	try{
 		// target frame, source frame!!!
-		standard_imu_orientation_tf = tfBuffer.lookupTransform("imu_ref_ori", "opensim_frame", ros::Time(0));
+		//standard_imu_orientation_tf = tfBuffer.lookupTransform("imu_ref_ori", "opensim_frame", ros::Time(0));
+		standard_imu_orientation_tf = tfBuffer.lookupTransform(tfname, "opensim_frame", ros::Time(0));
 		//coult it be an inverse transform_????
 		// doesnt look likeit
 		//standard_imu_orientation_tf = tfBuffer.lookupTransform("map", "imu_ref_ori", ros::Time(0));	
@@ -191,6 +193,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		int direction = 1;
 		if (imuAxis.front() == '-') direction = -1;
 		const char& back = imuAxis.back();
+		////////// OKAY, so this is maybe mislabelled_?? and this is the heading of the IMU???
 		if (back == 'x')
 			baseHeadingDirection =
 				SimTK::CoordinateDirection(SimTK::XAxis, direction);
@@ -260,7 +263,10 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		// express unit x axis of local body frame to ground frame
 		Vec3 baseFrameX = UnitVec3(1, 0, 0);
-		const SimTK::Transform& baseXForm =
+		
+		// what if i don't care about what is the real coordinate frame of the base here?
+		// no, i think i care about it, but then this is weird because the model is rotated, so i will want to rotate the cameras as well? i dont understand
+		const SimTK::Transform& baseXForm = //SimTK::Transform();
 			baseFrame->getTransformInGround(state);
 		Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
 		
@@ -268,7 +274,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		publishTransform("opensim_real_base", baseXForm, sameHeader);
 
 
-		ROS_WARN_STREAM("baseFrameXInGround" << baseFrameXInGround);
+		ROS_YE("baseFrameXInGround" << baseFrameXInGround);
 
 		// compute the angular difference between the model heading and imu
 		// heading
@@ -284,7 +290,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		auto xproduct = baseFrameXInGround % baseSegmentXheading;
 		if (xproduct.get(1) > 0) { angularDifference *= -1; negate=true; }
 
-		ROS_WARN_STREAM("angularDifference: " << angularDifference << " rad ( " << angularDifference/3.14159205*180.0 << " degrees)");
+		ROS_YE("angularDifference: " << angularDifference << " rad ( " << angularDifference/3.14159205*180.0 << " degrees)");
 		// set heading rotation (rotation about Y axis)
 		R_heading = Rotation(angularDifference , SimTK::YAxis);
 
@@ -292,19 +298,17 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		ROS_WARN("No heading correction is applied. Heading rotation is set to "
 				"default");
 	}
-	ros::NodeHandle nh("~");
-
 
 	///fff.. my angle sign calculation is wrong, so i will use this from opensimrt...
 	///this  is awful, i hate it
-	if (negate)
-	{
-		baseHeadingAngle = -abs(baseHeadingAngle);
-	}
-	else
-	{
-		baseHeadingAngle = abs(baseHeadingAngle);
-	}
+	//if (negate)
+	//{
+	//	baseHeadingAngle = -abs(baseHeadingAngle);
+	//}
+	//else
+	//{
+	//	baseHeadingAngle = abs(baseHeadingAngle);
+	//}
 
 	ROS_INFO_STREAM("heading orientation matrix:\n" << R_heading);
 	ros::spinOnce();
@@ -367,7 +371,9 @@ void IMUCalibrator::calibrateIMUTasks(
 
 		Vec3  myVec = imuBodiesInGround[bodyName].p();
 		Vec3 myVec2 = myVec;
+		Vec3 myVec3 = myVec;
 		myVec2[0]+=0.2;
+		myVec3[2]+=0.2;
 		//const auto Corrected_Q0 = ~Rotation(q0);
 		//ROS_DEBUG_STREAM("Corrected_Q0 orientation matrix:" << bodyName << "\n" << Corrected_Q0);
 
@@ -378,11 +384,18 @@ void IMUCalibrator::calibrateIMUTasks(
 
 		ROS_DEBUG_STREAM("R0 orientation matrix:" << bodyName << "\n" << R0);
 
+		const auto R0_ = R_heading * R_GoGi1 * Rotation(q0);
+		Transform TT_(R0_, myVec3) ;
+
+		publishTransform(bodyName+"R0_", TT_, sameHeader);
+
+		ROS_DEBUG_STREAM("R0_ orientation matrix:" << bodyName << "\n" << R0_);
 		Rotation RR ;
 
 		//if (i==baseBodyIndex)
 		RR = R_heading; //maybe this should be calculated per imu?
 		const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
+		//const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName]* RR * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName] * R0; // ~R_GB * R_GO
 		Transform TT_BS(R_BS, myVec2) ;
@@ -417,10 +430,10 @@ void IMUCalibrator::calibrate_ext_signals_sender()
 			t.join();
 	chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
-	ROS_WARN_STREAM("multiple srv call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count());
+	ROS_YE("multiple srv call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count());
 
 	if(!ext_heading_srv.exists())
-		ROS_WARN_STREAM("srv:" <<ext_heading_srv.getService() << " does not exist!!!!!!");
+		ROS_YE("srv:" <<ext_heading_srv.getService() << " does not exist!!!!!!");
 	else
 	{
 		ROS_INFO_STREAM("trying to call" << ext_heading_srv.getService());
@@ -431,7 +444,7 @@ void IMUCalibrator::calibrate_ext_signals_sender()
 		chrono::high_resolution_clock::time_point tsrv3=chrono::high_resolution_clock::now() ;
 
 
-		ROS_WARN_STREAM("blames:: service call:"<<green<<chrono::duration_cast<chrono::milliseconds>(tsrv2-tsrv1).count()<<" spinning once"<<chrono::duration_cast<chrono::milliseconds>(tsrv3-tsrv2).count());
+		ROS_YE("blames:: service call:"<<green<<chrono::duration_cast<chrono::milliseconds>(tsrv2-tsrv1).count()<<" spinning once"<<chrono::duration_cast<chrono::milliseconds>(tsrv3-tsrv2).count());
 
 		ROS_INFO_STREAM("got heading angle " << b.response.data);
 		baseHeadingAngle = -b.response.data*180.0/3.141592;
@@ -440,7 +453,7 @@ void IMUCalibrator::calibrate_ext_signals_sender()
 	}
 	chrono::high_resolution_clock::time_point t3=chrono::high_resolution_clock::now() ;
 
-	ROS_WARN_STREAM("heading srv call duration in ms:"<<cyan<<chrono::duration_cast<chrono::milliseconds>(t3-t2).count());
+	ROS_YE("heading srv call duration in ms:"<<cyan<<chrono::duration_cast<chrono::milliseconds>(t3-t2).count());
 
 }
 

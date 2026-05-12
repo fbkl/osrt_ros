@@ -154,17 +154,28 @@ namespace OpenSimRT {
 			void publishCalibrationData();
 			void computeAvgStaticPoseCommon();
 			SimTK::Array_<SimTK::Rotation> transform(const std::vector<UIMUData>& imuData) {
-				long i=0;
+				//long i=0;
+				auto R_correction = R_heading * R_GoGi1;
+				//auto R_correction = R_heading * ~R_GoGi1;
+				//auto R_correction = R_heading;
+				SimTK::Vec3 tVec;
+				tVec[0] = 0.5;
+				tVec[1] = 0.5;
+				tVec[2] = 0.5;
+				SimTK::Transform TR(R_correction, tVec);
+				sameHeader.stamp = ros::Time::now();
+				publishTransform("R_correction", TR, sameHeader);
+
 				SimTK::Array_<SimTK::Rotation> imuObservations;
 				for (const auto& data : imuData) {
 					const auto& q = data.getQuaternion();
 					SimTK::Rotation R;
 					//if (i == baseBodyIndex)
-					R = R_heading *R_GoGi1* SimTK::Rotation(q);
+						R = R_correction* SimTK::Rotation(q);
 					//else
-					//	R = R_GoGi1 * ~SimTK::Rotation(q);
+					//	R = R_GoGi1 * SimTK::Rotation(q);
 					imuObservations.push_back(R);
-					i++;
+					//i++;
 				}
 				return imuObservations;
 			}

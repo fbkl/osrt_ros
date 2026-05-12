@@ -68,6 +68,8 @@ const std::string reset("\033[0m");
 
 const std::string bar("\n======================================================\n");
 
+#define ROS_YE(x) ROS_INFO_STREAM( yellow << x << reset)
+
 class GetPointFromSomeTF
 {
 	public:
@@ -92,7 +94,7 @@ class GetPointFromSomeTF
 			XmlRpc::XmlRpcValue markerList;
 			nh.getParam("observation_order", markerList);
 			if(markerList.valid())
-				ROS_WARN_STREAM("AR markerObservationOrder:" << markerList.toXml());
+				ROS_YE("AR markerObservationOrder:" << markerList.toXml());
 			else 
 				throw(XmlRpc::XmlRpcException("Couldn't parse observation_order"));
 			//ROS_ASSERT(markerList.getType() == XmlRpc::XmlRpcValue::TypeArray); //
@@ -322,7 +324,7 @@ class UIMUnode: Ros::CommonNode
 			{
 				vector<string> markerObservationOrder;
 				for (auto some_marker_name:tfPointGetter->markerNames)
-					ROS_WARN_STREAM("AR positional marker name: "<<some_marker_name);
+					ROS_YE("AR positional marker name: "<<some_marker_name);
 
 				InverseKinematics::createMarkerTasksFromMarkerNames(model, tfPointGetter->markerNames, markerTasks,
 						markerObservationOrder);
@@ -366,7 +368,7 @@ class UIMUnode: Ros::CommonNode
 				clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
 				SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
 				clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
-				ROS_WARN_STREAM("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before" << R_GoGi2 );
+				ROS_YE("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before (R_GoGi_original from imu_ground_rotation_XYZ parameter defined magic numbers)" << R_GoGi2 );
 			}
 			ROS_DEBUG_STREAM("heading");
 			clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
@@ -386,7 +388,7 @@ class UIMUnode: Ros::CommonNode
 			ROS_INFO_STREAM("Done with start_ik");
 			chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
-			ROS_WARN_STREAM(bar << "start_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
+			ROS_YE(bar << "start_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
 		}
 
 		SimTK::RowVector fromVectorOfSimTKQuaternionsToARowVector(std::vector<SimTK::Quaternion> vv)
@@ -586,9 +588,6 @@ class UIMUnode: Ros::CommonNode
 						ROS_DEBUG_STREAM("Filter results are valid");
 						opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
 						pub_filtered.publish(msg_filtered);
-						// visualize filtered!
-
-						///TODO: Frederico, really, what is this code logic a bunch of ifs to publish the thing in all cases,,, omg, change pls
 
 						//adding the data to the loggers
 						if (isRecording())
@@ -601,7 +600,7 @@ class UIMUnode: Ros::CommonNode
 					// record
 					if (isRecording())
 					{
-						ROS_WARN_ONCE("Recording!");
+						ROS_YE("Recording!");
 						imuLogger.appendRow(pose.t, driver->frame);//
 						qRawLogger.appendRow(pose.t, ~pose.q);
 					}
