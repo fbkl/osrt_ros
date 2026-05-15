@@ -173,7 +173,7 @@ namespace OpenSimRT {
 					//if (i == baseBodyIndex)
 						//R = R_correction* SimTK::Rotation(q); // this may work, idk.
 						//R = R_heading * R_correction* SimTK::Rotation(q);
-						//R = R_GoGi1* SimTK::Rotation(q);
+						R = R_GoGi1* SimTK::Rotation(q);
 					//else
 						//R = R_correction* ~SimTK::Rotation(staticPoseQuaternions[i]) * SimTK::Rotation(q);
 						//R = SimTK::Rotation(q); // this can't be fully correct because it is in the imu_ref_ori frame.
