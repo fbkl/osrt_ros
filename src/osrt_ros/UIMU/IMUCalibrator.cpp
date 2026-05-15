@@ -316,12 +316,14 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		// so here is the fucking annoying part. there is a hidden heading vector here. we can see it in the base when that line goes "going over body in ground to set initial location". for this model, that is not an identity matrix for this model, so here the heading aint really the heading, or idk how to make out this thing, but alas, here is the edge case we have to solve. so ... this heading is not very easy to wrap my head around, but we will have to calculate it. in my understanding there are 2 headings "inside of you there are 2 headings, one for the imu and another one from the model. can i add them together? i am not so sure yet. i may not want to correct the imu heading at all, actually i think this one i shouldn't correct, i want the model to have the orientation relative to the ground after all, maybe the whole heading computation should only take into account this part then. jerpotiwejrtpoeiwjtpoeiwj. expletives. 
 
 
-		const SimTK::Transform& baseXForm = //SimTK::Transform();
-			baseFrame->getTransformInGround(state);
+		//lets avoid this guy for now and do the simpler version
+
+		//const SimTK::Transform& baseXForm = //SimTK::Transform();
+		//	baseFrame->getTransformInGround(state);
 
 
 		//publishTransform("baseXForm",baseXForm, sameHeader);	
-		Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
+		//Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
 		
 		
 
@@ -338,7 +340,8 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		//
 		//
 
-		//auto baseFrameXInGround = baseFrameX;
+		
+		auto baseFrameXInGround = baseFrameX; //SIMPLER
 
 		angularDifference = acos(~baseSegmentXheading * baseFrameXInGround);
 
@@ -451,7 +454,8 @@ void IMUCalibrator::calibrateIMUTasks(
 		//if (i==baseBodyIndex)
 		//RR = R_heading; //maybe this should be calculated per imu?
 		//const auto R_BS = RR; // just the identity i think
-		const auto R_BS = R0; // just the identity i think
+		//const auto R_BS = R0; // this worked when the heading was zero. 
+		const auto R_BS = R0_; // the heading needs to be added either here or to the transform func i think
 		//const auto R_BS = ~imuBodiesInGround[bodyName].R(); // so this does something that maybe needs to be done? question mark
 		//const auto R_BS = ~R_heading *~imuBodiesInGround[bodyName].R() * R0_; //
 		//const auto R_BS = ~R_heading *imuBodiesInGround[bodyName].R() * R0_; // so this does something that maybe needs to be done? question mark
