@@ -236,13 +236,13 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		ROS_INFO_STREAM(cyan << "inverseq0_rotation_matrix: "<< inverseq0_rotation_matrix<<reset);
 		// all the permutations!
 		const auto base_R = R_GoGi1 * Rotation(q0);
-		const auto base_R1 = ~R_GoGi1 * Rotation(q0);
-		const auto base_R2 = R_GoGi1 * ~Rotation(q0);
-		const auto base_R3 = ~R_GoGi1 * ~Rotation(q0);
-		const auto base_R4 = Rotation(q0) * R_GoGi1;
-		const auto base_R5 = ~Rotation(q0) * R_GoGi1;
-		const auto base_R6 = Rotation(q0) * ~R_GoGi1;
-		const auto base_R7 = ~Rotation(q0) * ~R_GoGi1;
+		//const auto base_R1 = ~R_GoGi1 * Rotation(q0);
+		//const auto base_R2 = R_GoGi1 * ~Rotation(q0);
+		//const auto base_R3 = ~R_GoGi1 * ~Rotation(q0);
+		//const auto base_R4 = Rotation(q0) * R_GoGi1;
+		//const auto base_R5 = ~Rotation(q0) * R_GoGi1;
+		//const auto base_R6 = Rotation(q0) * ~R_GoGi1;
+		//const auto base_R7 = ~Rotation(q0) * ~R_GoGi1;
 
 		//const SimTK::Rotation base_R = ~Rotation(q0);
 		//
@@ -251,31 +251,31 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		ROS_INFO_STREAM("base_R = R_GoGi1 * Rotation(q0)" << base_R);
 
 		Vec3 trans_base_rotated{1.2,1,1};
-		Vec3 trans_base_rotated1{1.2,1+.1,1};
-		Vec3 trans_base_rotated2{1.2,1+.2,1};
-		Vec3 trans_base_rotated3{1.2,1+.3,1};
-		Vec3 trans_base_rotated4{1.2,1+.4,1};
-		Vec3 trans_base_rotated5{1.2,1+.5,1};
-		Vec3 trans_base_rotated6{1.2,1+.6,1};
-		Vec3 trans_base_rotated7{1.2,1+.7,1};
+		//Vec3 trans_base_rotated1{1.2,1+.1,1};
+		//Vec3 trans_base_rotated2{1.2,1+.2,1};
+		//Vec3 trans_base_rotated3{1.2,1+.3,1};
+		//Vec3 trans_base_rotated4{1.2,1+.4,1};
+		//Vec3 trans_base_rotated5{1.2,1+.5,1};
+		//Vec3 trans_base_rotated6{1.2,1+.6,1};
+		//Vec3 trans_base_rotated7{1.2,1+.7,1};
 
 		SimTK::Transform TRotatedBase(base_R, trans_base_rotated);
-		SimTK::Transform TRotatedBase1(base_R1, trans_base_rotated1);
-		SimTK::Transform TRotatedBase2(base_R2, trans_base_rotated2);
-		SimTK::Transform TRotatedBase3(base_R3, trans_base_rotated3);
-		SimTK::Transform TRotatedBase4(base_R4, trans_base_rotated4);
-		SimTK::Transform TRotatedBase5(base_R5, trans_base_rotated5);
-		SimTK::Transform TRotatedBase6(base_R6, trans_base_rotated6);
-		SimTK::Transform TRotatedBase7(base_R7, trans_base_rotated7);
+		//SimTK::Transform TRotatedBase1(base_R1, trans_base_rotated1);
+		//SimTK::Transform TRotatedBase2(base_R2, trans_base_rotated2);
+		//SimTK::Transform TRotatedBase3(base_R3, trans_base_rotated3);
+		//SimTK::Transform TRotatedBase4(base_R4, trans_base_rotated4);
+		//SimTK::Transform TRotatedBase5(base_R5, trans_base_rotated5);
+		//SimTK::Transform TRotatedBase6(base_R6, trans_base_rotated6);
+		//SimTK::Transform TRotatedBase7(base_R7, trans_base_rotated7);
 		sameHeader.stamp = ros::Time::now();
 		publishTransform("base_rotation", TRotatedBase, sameHeader);
-		publishTransform("base_rotation1", TRotatedBase1, sameHeader);
-		publishTransform("base_rotation2", TRotatedBase2, sameHeader);
-		publishTransform("base_rotation3", TRotatedBase3, sameHeader);
-		publishTransform("base_rotation4", TRotatedBase4, sameHeader);
-		publishTransform("base_rotation5", TRotatedBase5, sameHeader);
-		publishTransform("base_rotation6", TRotatedBase6, sameHeader);
-		publishTransform("base_rotation7", TRotatedBase7, sameHeader);
+		//publishTransform("base_rotation1", TRotatedBase1, sameHeader);
+		//publishTransform("base_rotation2", TRotatedBase2, sameHeader);
+		//publishTransform("base_rotation3", TRotatedBase3, sameHeader);
+		//publishTransform("base_rotation4", TRotatedBase4, sameHeader);
+		//publishTransform("base_rotation5", TRotatedBase5, sameHeader);
+		//publishTransform("base_rotation6", TRotatedBase6, sameHeader);
+		//publishTransform("base_rotation7", TRotatedBase7, sameHeader);
 
 		// get initial direction from the imu measurement (the axis looking
 		// front)
