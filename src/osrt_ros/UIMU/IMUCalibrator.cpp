@@ -450,7 +450,8 @@ void IMUCalibrator::calibrateIMUTasks(
 
 		//if (i==baseBodyIndex)
 		//RR = R_heading; //maybe this should be calculated per imu?
-		const auto R_BS = RR; // just the identity i think
+		//const auto R_BS = RR; // just the identity i think
+		const auto R_BS = R0; // just the identity i think
 		//const auto R_BS = ~imuBodiesInGround[bodyName].R(); // so this does something that maybe needs to be done? question mark
 		//const auto R_BS = ~R_heading *~imuBodiesInGround[bodyName].R() * R0_; //
 		//const auto R_BS = ~R_heading *imuBodiesInGround[bodyName].R() * R0_; // so this does something that maybe needs to be done? question mark
