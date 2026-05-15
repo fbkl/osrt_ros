@@ -154,7 +154,7 @@ namespace OpenSimRT {
 			void publishCalibrationData();
 			void computeAvgStaticPoseCommon();
 			SimTK::Array_<SimTK::Rotation> transform(const std::vector<UIMUData>& imuData) {
-				//long i=0;
+				long i=0;
 				auto R_correction = R_heading * R_GoGi1;
 				//auto R_correction = R_heading * ~R_GoGi1;
 				//auto R_correction = R_heading;
@@ -171,9 +171,13 @@ namespace OpenSimRT {
 					const auto& q = data.getQuaternion();
 					SimTK::Rotation R;
 					//if (i == baseBodyIndex)
-						R = R_correction* SimTK::Rotation(q);
+						//R = R_correction* SimTK::Rotation(q); // this may work, idk.
+						//R = R_heading * R_correction* SimTK::Rotation(q);
+						//R = R_GoGi1* SimTK::Rotation(q);
 					//else
-					//	R = R_GoGi1 * SimTK::Rotation(q);
+						//R = R_correction* ~SimTK::Rotation(staticPoseQuaternions[i]) * SimTK::Rotation(q);
+						//R = SimTK::Rotation(q); // this can't be fully correct because it is in the imu_ref_ori frame.
+					//R = R_GoGi1 * SimTK::Rotation(q); // so this has to be better
 					imuObservations.push_back(R);
 					//i++;
 				}

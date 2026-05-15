@@ -365,8 +365,8 @@ class UIMUnode: Ros::CommonNode
 				clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
 				clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
 				Vec3 trans_p0{1.1,1,-1};
-				clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
-				SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
+				clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori"); // why the double inversion here? well, because we want to multiply this by the orientations from the imus and get the canonical rotation that they apply. or something, idk.
+				SimTK::Transform TX0(clb->R_GoGi1,trans_p0);
 				clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
 				ROS_YE("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before (R_GoGi_original from imu_ground_rotation_XYZ parameter defined magic numbers)" << R_GoGi2 );
 			}
@@ -423,10 +423,10 @@ class UIMUnode: Ros::CommonNode
 		void doCalibrate()
 		{
 			ROS_DEBUG_STREAM("clb samples");
-			clb->recordNumOfSamples(100); //TODO:PARAM!
-			clb_is_ready = true;
 			clearLogger(imuCalibrationLogger);
 			ROS_INFO_STREAM("After clearing table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
+			clb->recordNumOfSamples(10); //TODO:PARAM!
+			clb_is_ready = true;
 			imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions)); //if this is the time, maybe we want to add the calibration time here as well. Also, maybe we don't want to clear the calibration, or clear only after saving? TODO: think about this
 			ROS_INFO_STREAM("After appending clb samples to table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
 		}
@@ -465,10 +465,12 @@ class UIMUnode: Ros::CommonNode
 			clb = new IMUCalibrator(model, driver, imuObservationOrder);
 
 
-			doCalibrate();
+			//doCalibrate(); //Maybe i dont want to do this in the initialization
 
 			define_tasks();
-			start_ik();
+			
+			ik = new InverseKinematics(model, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+			//start_ik();
 
 			string all_labels;
 			ros::NodeHandle nh("~");
@@ -548,6 +550,7 @@ class UIMUnode: Ros::CommonNode
 
 					auto pose = ik->solve(
 							{imuData.first, markerObservations, clb->transform(imuData.second)});
+							//{imuData.first, markerObservations, imuData.second});
 
 					addEvent("ik",msg);
 					chrono::high_resolution_clock::time_point t2;
