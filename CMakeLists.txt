@@ -33,6 +33,7 @@ find_package(catkin REQUIRED COMPONENTS
 	tf2
 	tf2_ros
 	urdf
+        vicon_bridge
 	)
 find_package(assimp REQUIRED)
 find_package(VTK REQUIRED COMPONENTS vtkIOXML vtkIOGeometry vtkIOPLY)
@@ -84,6 +85,7 @@ catkin_package(
 	sensor_msgs
 	tf2
 	tf2_ros
+  	vicon_bridge
 	LIBRARIES osrtRosUIMU osrtRosPipeline
 	osrt_rviz_plugin	
 	)
