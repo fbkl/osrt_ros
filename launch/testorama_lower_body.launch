@@ -1,46 +1,67 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
-	<arg name="some_frame" default="intermediate_link" />
 	<arg name="freq" default="10" />
-	<arg name="adj_inter" default="false" />
 	<!-- static move-->
-	<arg name="static" default="false"/>
+	<arg name="static" default="true"/>
 	<arg if="$(arg static)" name="node_pkg" value="tf2_ros" />
 	<arg if="$(arg static)" name="node_type" value="static_transform_publisher" />
 	<arg unless="$(arg static)"   name="node_pkg" value="ar_test" />
 	<arg unless="$(arg static)"   name="node_type" value="adjustable_node" />
 	<!--arg unless="$(arg static)"   name="node_type" value="modifiable_fixed_transform_publisher.py" /-->
-
+	<arg name="debug" value="false"/>
+	<arg name="imu_ref_ori_parent" value="opensim_frame"/>
+	<!-- arg name="imu_ref_ori_parent" value="map"/ -->
 
 	<group ns="essential_tf_broadcasters">
-		<arg name="ioption1" value = " 0      0.707  0      0.707"/>
-		<arg name="ioption2" value = "-0.707  0      0.707  0    "/>
-		<arg name="ioption3" value = "-0.5   -0.5    0.5    0.5  "/>
-		<arg name="ioption4" value = "-0.5    0.5   -0.5    0.5  "/>
-		<arg name="ioption5" value = " 0.707  0      0.707  0    "/>
-		<arg name="ioption6" value = " 0.5  0.5      -0.5  -0.5   "/>
-		<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) opensim_frame imu_ref_ori " output="screen"/>
-
+		<arg name="ioption1"  value = " 0      0.707  0      0.707"/>
+		<arg name="ioption2"  value = "-0.707  0      0.707  0    "/>
+		<arg name="ioption3"  value = "-0.5   -0.5    0.5    0.5  "/>
+		<arg name="ioption4"  value = "-0.5    0.5   -0.5    0.5  "/>
+		<arg name="ioption5"  value = " 0.707  0      0.707  0    "/>
+		<arg name="ioption6"  value = " 0.5  0.5      -0.5  -0.5   "/>
+		<arg name="ioption7"  value = " 0     -0.707  0      0.707"/>
+		<arg name="ioption8"  value = " 0      0      1      0    "/>
+		<arg name="ioption9"  value = " 1      0      0      0    "/>
+		<arg name="ioption10" value = " 0      0      0      1    "/>
+		<arg name="ioption11" value = " 0      0.707 -0.707  0    "/>
+		<!--node pkg="$(arg node_pkg)" type="$(arg node_type)" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) opensim_frame imu_ref_ori " output="screen"/-->
+		<node pkg="$(arg node_pkg)" type="$(arg node_type)" name="imu_ref_broadcaster" args="1 1 -1   $(arg ioption5) $(arg imu_ref_ori_parent) imu_ref_ori " output="screen"/>
 
 		<!-- option 2 looks the closest to the osim visualization-->
 		<arg name="ooption1" value = " 0.707  0      0      0.707"/>
 		<arg name="ooption2" value = " 0.5    0.5    0.5    0.5  "/>
 		<arg name="ooption3" value = " 0      0.707  0.707  0    "/>
+
 		<arg name="ooption4" value = "-0.5    0.5    0.5   -0.5  "/>
+		<arg name="ooption5" value = " 0.707  0.707  0      0"/>
+		<arg name="ooption6" value = " 0.5    0.5   -0.5   -0.5  "/>
 		<node pkg="tf2_ros" type="static_transform_publisher" name="link0_broadcaster" args="0 0 0  0 0 0 1 map world   " />
 
 		<!-- I haven't derived this, but I have made the movable node show me all possible transformations that look right, and there are only 4! so we inspect them one by one -->
 		<!-- node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->
 		<!-- node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster2" args="0 0 0  0.5 0.5 0.5 0.5 map opensim_frame   " / -->
-		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   " />
-		<!--node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster4" args="0 0 0  -0.5 0.5 0.5 -0.5 map opensim_frame   " / -->
+		<!-- node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   "                                                         most correct so far   /-->
+		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption4) map opensim_frame   " />
+		<group if="$(arg debug)">
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster11" args=" 1 1.3 -2   $(arg ioption1 ) $(arg imu_ref_ori_parent) imu_ref_ori1  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster12" args=" 0 1.3 -2   $(arg ioption2 ) $(arg imu_ref_ori_parent) imu_ref_ori2  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster13" args="-1 1.3 -2   $(arg ioption3 ) $(arg imu_ref_ori_parent) imu_ref_ori3  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster14" args="-1 1.3 -1   $(arg ioption4 ) $(arg imu_ref_ori_parent) imu_ref_ori4  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster15" args=" 2 1.3 -1   $(arg ioption5 ) $(arg imu_ref_ori_parent) imu_ref_ori5  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster16" args=" 2 1.3 -2   $(arg ioption6 ) $(arg imu_ref_ori_parent) imu_ref_ori6  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster17" args=" 2 1.3 -0   $(arg ioption7 ) $(arg imu_ref_ori_parent) imu_ref_ori7  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster18" args=" 1 1.3 -0   $(arg ioption8 ) $(arg imu_ref_ori_parent) imu_ref_ori8  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster19" args=" 1 1.3 -1   $(arg ioption9 ) $(arg imu_ref_ori_parent) imu_ref_ori9  " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster20" args="-1 1.3 -0   $(arg ioption10) $(arg imu_ref_ori_parent) imu_ref_ori10 " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster21" args="0  1.3 -0   $(arg ioption11) $(arg imu_ref_ori_parent) imu_ref_ori11 " output="screen"/>
+			<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster13" args=" 1.0  0   0  $(arg ooption1) map opensim_frame1   " />
+			<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster23" args=" 1.0  1.0 0  $(arg ooption2) map opensim_frame2   " />
+			<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster33" args="-1.0  1.0 0  $(arg ooption3) map opensim_frame3   " />
+			<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster43" args=" 1.0 -1.0 0  $(arg ooption5) map opensim_frame4   " />
+			<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster53" args="-1.0 -1.0 0  $(arg ooption6) map opensim_frame5   " />
+			<!--node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster4" args="0 0 0  -0.5 0.5 0.5 -0.5 map opensim_frame   " / -->
+		</group>
 	</group>
-
-	<!-- the args in the launch prefix has the minus minus together! -->
-	<!-- node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 0.707 0.707 imu intermediate_link " launch-prefix="gdb -ex run - -args" output="screen"/ -->
-	<!--node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 0.707 0.707 imu intermediate_link " output="screen"/ -->
-	<!--node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0.707 0 0.707 imu intermediate_link " output="screen"/ -->
-	<node unless="$(arg adj_inter)" pkg="$(arg node_pkg)" type="$(arg node_type)" name="inter_broadcaster" args="0 0 0   0 0 -1 0 imu intermediate_link "/>
 
 
 

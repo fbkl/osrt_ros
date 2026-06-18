@@ -20,6 +20,9 @@
 #include <exception>
 #include "osrt_ros/parameters.h"
 
+#include "ros/service_client.h"
+#include "ros/service_server.h"
+#include "std_srvs/Empty.h"
 //TODO:this is rather bad and I should be able to load models using some string input
 //TODO: remove this switch statement, find something better.
 //
@@ -40,6 +43,15 @@ namespace Visualizers
 			ros::Subscriber sub, sub_filtered;
 			Ros::Reshuffler input;
 			OpenSim::Object* muscleModel;
+			ros::ServiceServer resetModelSrv;
+			
+			bool resetModel(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+			{
+			
+				model_reset();
+				return true;
+			
+			}
 
 			void set_delay_from_header(ros::Time t)
 			{
@@ -71,6 +83,7 @@ namespace Visualizers
 				input.get_labels(nh);
 				ROS_DEBUG_STREAM("Setting up model.");
 
+				resetModelSrv = nh.advertiseService("reset", &VisualizerCommon::resetModel, this);
 
 				switch(m)
 				{
@@ -127,12 +140,7 @@ namespace Visualizers
 					q[i]=0.0; // to show like a model, make it nicer
 					i++;
 				}
-				if (visualizer)
-				{
-					visualizer->update(q);
-				}
-				else
-					ROS_ERROR("NO VISUALIZER DEFINED");
+				visualizer->update(q);
 
 
 
