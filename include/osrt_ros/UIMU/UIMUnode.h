@@ -114,23 +114,23 @@ class GetPoint
 				{
 					for (int32_t i = 0; i < markerList.size(); ++i) 
 					{
-						ROS_INFO("AR: Entered loop");
+						ROS_INFO("AR getpoint: Entered loop");
 						MyMarker a;
 
 						XmlRpc::XmlRpcValue markerDef = markerList[i]; 
-						ROS_INFO("AR: Loaded MarkerDef");
+						ROS_INFO("AR getpoint: Loaded MarkerDef");
 						a.this_marker_name = (std::string)markerDef["marker_name"];
 						a.this_marker_tf = (std::string)markerDef["marker_tf"];
-						ROS_INFO_STREAM("AR: Assigned name: " << a.this_marker_name);
+						ROS_INFO_STREAM("AR getpoint: Assigned name: " << a.this_marker_name);
 						markerNames.push_back(a.this_marker_name);
-						ROS_INFO_STREAM("AR: ADDED TO MARKER LIST: " << magenta << markerNames.back() );
+						ROS_INFO_STREAM("AR getpoint: ADDED TO MARKER LIST: " << magenta << markerNames.back() );
 						XmlRpc::XmlRpcValue this_marker_default_position = markerDef["default_position"];
-						ROS_INFO_STREAM(cyan <<"read default_position ok"<<reset);
+						ROS_INFO_STREAM(cyan <<"getpoitn read default_position ok"<<reset);
 						ROS_ASSERT(this_marker_default_position.getType() == XmlRpc::XmlRpcValue::TypeArray); //
 						a.x = this_marker_default_position[0];
 						a.y = this_marker_default_position[1];
 						a.z = this_marker_default_position[2];
-						ROS_INFO_STREAM(cyan <<"setting x,y,z okay"<<reset);
+						ROS_INFO_STREAM(cyan <<"getpoint setting x,y,z okay"<<reset);
 
 						mmList.push_back(a);
 					}
@@ -138,9 +138,9 @@ class GetPoint
 			}
 			catch(XmlRpc::XmlRpcException& e)
 			{
-				ROS_ERROR_STREAM("AR: Could not setup markers" << e.getMessage());
+				ROS_ERROR_STREAM("AR getpoint: Could not setup markers" << e.getMessage());
 			}
-			ROS_INFO("AR: Finished serring up markers");
+			ROS_INFO("AR getpoint: Finished setting up markers");
 
 		}
 
@@ -167,8 +167,6 @@ class GetPointFromSomeTF: public GetPoint
 	public:
 	GetPointFromSomeTF(): tfListener(tfBuffer) 
 	{
-
-
 		nh.param<double>("tf_timeout",tf_timeout,0.05);
 		nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
 		nh.param<std::string>("tf_frame_prefix",tf_frame_prefix,"not_set");
@@ -195,7 +193,7 @@ class GetPointFromSomeTF: public GetPoint
 				latest_marker_tfs[this_marker_tf] = transform;
 
 
-				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE MARKER AT LEAST"<<reset);
+				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE TF MARKER AT LEAST"<<reset);
 				//ROS_ASSERT(markerDef[i].getType() == XmlRpc::XmlRpcValue::TypeString);
 			}
 			//for (auto& marker:markerNames)
@@ -205,7 +203,7 @@ class GetPointFromSomeTF: public GetPoint
 		{
 			ROS_ERROR_STREAM("AR: Could not setup markers" << e.getMessage());
 		}
-		ROS_INFO("AR: Finished serring up markers");
+		ROS_INFO("AR: Finished setting up markers");
 
 	}
 	SimTK::Array_<SimTK::Vec3> get_translations() override
@@ -260,10 +258,10 @@ class GetPointFromMarkers:public GetPoint
 		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
 
 		try{	
-			ROS_INFO_STREAM("AR: parsing points and tf map");
+			ROS_INFO_STREAM("AR: parsing points and vicon marker map");
 			for (int32_t i = 0; i < markerList.size(); ++i) 
 			{
-				ROS_INFO("AR: Entered loop");
+				ROS_INFO("AR vicon : Entered loop");
 				auto a = mmList[i];
 				vicon_bridge::Marker this_marker;		
 
@@ -273,24 +271,16 @@ class GetPointFromMarkers:public GetPoint
 				this_marker.marker_name = a.this_marker_name;
 				//latest_marker_vec.push_back(this_marker); //NO! i am initializing the MAP here, not this vector which we dont use
 				marker_map[a.this_marker_name] = this_marker;
-
-
-				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE MARKER AT LEAST"<<reset);
-
-
-
+				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE VICON MARKER AT LEAST"<<reset);
 			}
 			//for (auto& marker:markerNames)
 			//	marker+=tf_frame_prefix;
 		}
 		catch(XmlRpc::XmlRpcException& e)
 		{
-			ROS_ERROR_STREAM("AR: Could not setup markers" << e.getMessage());
+			ROS_ERROR_STREAM("AR: Could not setup vicon markers" << e.getMessage());
 		}
-		ROS_INFO("AR: Finished serring up markers");
-
-
-
+		ROS_INFO("AR: Finished setting up vicon markers");
 
 
 	}
