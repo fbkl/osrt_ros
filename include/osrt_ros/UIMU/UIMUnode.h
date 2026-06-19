@@ -711,6 +711,9 @@ class UIMUnode: Ros::CommonNode
 					if (last_time == this_time)
 					{
 						ROS_WARN_THROTTLE(1,"run() rate exceeds data update rate.");
+						ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
+						r->sleep();
+						continue;
 					}
 					auto pose = ik->solve(
 							{this_time, markerObservations, clb->transform(imuData.second)});
