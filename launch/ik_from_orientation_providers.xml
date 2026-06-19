@@ -14,13 +14,19 @@
 	<arg name="use_sim_time"	default="false"/>
 	<!--arg name="model_file" 		default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
 	<arg name="model_file" 		default="/srv/host_data/fk.osim" />
-	<arg name="use_ar"		default="false"/>
 	<arg name="imu_base_body" 		default="pelvis" />
 	<arg name="imu_direction_axis" 			default="z" />
 	<arg name="machine" 		default=""/>
+	
+	<arg name="use_position_markers"		  default="false"/>
+	<arg name="use_orientation_markers"		  default="true"/>
 	<!-- this is so stupid, but I don't know of another way of doing it -->
 	<!-- also logging is bugged with ssh execution, so for these nodes we will have to read the logs!-->
+	<arg name="point_getter_type" 		  default="tf"/>
 	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" machine="$(arg machine)" output="log" if="$(eval arg('machine') != '')">
+		<param name="point_getter_type" 		  value="$(arg point_getter_type)"/>
+		<param name="use_position_markers"		  value="$(arg use_position_markers)"/>
+		<param name="use_orientation_markers"		  value="$(arg use_orientation_markers)"/>
 		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
 		<!-- param name="resample_period" 		value="0.01" / -->
 		<param name="model_file" 		value="$(arg model_file)" />
@@ -58,7 +64,6 @@
 		<!-- Debug options -->
 
 		<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
-		<param name="use_position_markers" 	value="$(arg use_ar)"/>
 		<param name="marker/tf_timeout" 	value="0.01" />
 		<param name="marker/tf_frame_prefix" 	value="ar" />
 		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
@@ -71,6 +76,9 @@
 	</node>
 
 	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" output="screen" if="$(eval arg('machine') == '' )">
+		<param name="point_getter_type" 		  value="$(arg point_getter_type)"/>
+		<param name="use_position_markers"		  value="$(arg use_position_markers)"/>
+		<param name="use_orientation_markers"		  value="$(arg use_orientation_markers)"/>
 		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
 		<!-- param name="resample_period" 		value="0.01" / -->
 		<param name="model_file" 		value="$(arg model_file)" />
@@ -108,7 +116,6 @@
 		<!-- Debug options -->
 
 		<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
-		<param name="use_position_markers" 	value="$(arg use_ar)"/>
 		<param name="marker/tf_timeout" 	value="0.01" />
 		<param name="marker/tf_frame_prefix" 	value="ar" />
 		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->

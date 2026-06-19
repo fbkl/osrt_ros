@@ -94,6 +94,7 @@ class GetPoint
 		std::unordered_map<std::string, std::string> markerDefList;
 		XmlRpc::XmlRpcValue markerList;
 		std::vector<MyMarker> mmList;
+		double last_time{0.0};
 		GetPoint() 
 		{
 
@@ -219,6 +220,7 @@ class GetPointFromSomeTF: public GetPoint
 				transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 				//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 				latest_marker_tfs[this_marker_tf] = transform;
+				last_time = transform.header.stamp.toSec();
 			}
 			catch (tf::TransformException& ex){
 				ROS_ERROR_THROTTLE(60,"AR: Translation part Transform exception! %s",ex.what());
@@ -249,6 +251,7 @@ class GetPointFromMarkers:public GetPoint
 		{
 			marker_map[marker.marker_name] = marker;
 		}
+		last_time = msg->header.stamp.toSec();
 
 	}
 	public:
@@ -349,7 +352,7 @@ class UIMUnode: Ros::CommonNode
 		//dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
 		OpenSim::Model model;
 
-		GetPointFromSomeTF* tfPointGetter;
+		GetPoint* pointGetter;
 
 
 		void get_params()
@@ -365,8 +368,12 @@ class UIMUnode: Ros::CommonNode
 			nh.param<double>("imu_ground_rotation_x", xGroundRotDeg1, 0.0);
 			nh.param<double>("imu_ground_rotation_y", yGroundRotDeg1, 0.0);
 			nh.param<double>("imu_ground_rotation_z", zGroundRotDeg1, 0.0);
+			
+			nh.param<bool>("use_position_markers", usePositionMarkers, false);
+			nh.param<bool>("use_orientation_markers", useOrientationMarkers, true);
+			
 			nh.getParam("imu_observation_order", imuObservationOrder);
-			if (imuObservationOrder.size() == 0)
+			if (imuObservationOrder.size() == 0 && useOrientationMarkers) 
 			{
 				ROS_FATAL("IMU observation order not defined!");
 				throw(std::invalid_argument("imuObservationOrder not defined."));
@@ -387,8 +394,6 @@ class UIMUnode: Ros::CommonNode
 			nh.param<std::string>("logger_filename_ik", loggerFileNameIK, "test_ik");
 			nh.param<std::string>("logger_filename_imus", loggerFileNameIMUs, "test_imus");
 
-			nh.param<bool>("use_position_markers", usePositionMarkers, false);
-			nh.param<bool>("use_orientation_markers", useOrientationMarkers, true);
 
 			if (!usePositionMarkers && !useOrientationMarkers)
 				ROS_FATAL("You need at least one form of input marker to compute IK!!!");
@@ -402,8 +407,19 @@ class UIMUnode: Ros::CommonNode
 
 			if( usePositionMarkers)
 			{
-				ROS_INFO_STREAM("Also using position Markers!");
-				tfPointGetter = new GetPointFromSomeTF;
+				std::string getter_type;
+				nh.param<std::string>("point_getter_type",getter_type,"");
+
+				ROS_INFO_STREAM("Using position Markers![" << getter_type <<"]");
+				//needs a param to get if it is the TF input or a marker input
+			
+				if (getter_type == "tf")
+					pointGetter = new GetPointFromSomeTF;
+				if (getter_type == "marker")
+					pointGetter = new GetPointFromMarkers;
+				if (getter_type != "marker" && getter_type != "tf")
+					throw(std::invalid_argument("invalid positional getter type."));
+						
 			}
 
 			ROS_DEBUG_STREAM("Finished getting params.");
@@ -455,10 +471,10 @@ class UIMUnode: Ros::CommonNode
 			{
 				ROS_DEBUG_STREAM("Setting up markerTasks");
 				vector<string> markerObservationOrder;
-				for (auto some_marker_name:tfPointGetter->markerNames)
+				for (auto some_marker_name:pointGetter->markerNames)
 					ROS_WARN_STREAM("AR positional marker name: "<<some_marker_name);
 
-				InverseKinematics::createMarkerTasksFromMarkerNames(model, tfPointGetter->markerNames, markerTasks,
+				InverseKinematics::createMarkerTasksFromMarkerNames(model, pointGetter->markerNames, markerTasks,
 						markerObservationOrder);
 			}
 
@@ -483,35 +499,37 @@ class UIMUnode: Ros::CommonNode
 		void start_ik()
 		{
 			chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
-			ROS_DEBUG_STREAM("setGroundOrientationSeq");
-			if (false)
-			{
-				clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-				ROS_INFO("Setting ground orientation from params");
-			}
-			else
-			{
-				auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-				Vec3 trans_p{1,1,1};
-				Vec3 trans_p2{1.1,1,1};
-				SimTK::Transform TX(R_GoGi2,trans_p);
-				SimTK::Transform TX2(~R_GoGi2,trans_p2);
-				clb->sameHeader.stamp = ros::Time::now();
-				clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
-				clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
-				Vec3 trans_p0{1.1,1,-1};
-				clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
-				SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
-				clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
-				ROS_WARN_STREAM("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before" << R_GoGi2 );
-			}
-			ROS_DEBUG_STREAM("heading");
-			clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
+			
+			if (useOrientationMarkers){	
+				ROS_DEBUG_STREAM("setGroundOrientationSeq");
+				if (false)
+				{
+					clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
+					ROS_INFO("Setting ground orientation from params");
+				}
+				else
+				{
+					auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
+					Vec3 trans_p{1,1,1};
+					Vec3 trans_p2{1.1,1,1};
+					SimTK::Transform TX(R_GoGi2,trans_p);
+					SimTK::Transform TX2(~R_GoGi2,trans_p2);
+					clb->sameHeader.stamp = ros::Time::now();
+					clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
+					clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
+					Vec3 trans_p0{1.1,1,-1};
+					clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
+					SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
+					clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
+					ROS_WARN_STREAM("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before" << R_GoGi2 );
+				}
+				ROS_DEBUG_STREAM("heading");
+				clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
 
-			//std::cout << boost::stacktrace::stacktrace() << std::endl;
-			clb->calibrateIMUTasks(imuTasks);
-			ROS_DEBUG_STREAM("Setting up IMUCalibrator");
-
+				//std::cout << boost::stacktrace::stacktrace() << std::endl;
+				clb->calibrateIMUTasks(imuTasks);
+				ROS_DEBUG_STREAM("Setting up IMUCalibrator");
+			}
 			// initialize ik (lower constraint weight and accuracy -> faster tracking)
 			ROS_DEBUG_STREAM("Setting up IK");
 			ik = new InverseKinematics(model, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
@@ -581,26 +599,27 @@ class UIMUnode: Ros::CommonNode
 			//server.setCallback(f);
 			time_pub = nh.advertise<std_msgs::Int64>("time",1);
 			time_ik_pub = nh.advertise<std_msgs::Int64>("time_ik",1);
-			calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
 			// setup model
 			ROS_DEBUG_STREAM("Setting up model.");
 			model = OpenSim::Model(modelFile);
 			OpenSimUtils::removeActuators(model);
 
-			ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix" << tf_frame_prefix << " and rate: " << rate );
-			driver = new UIMUInputDriver(imuObservationOrder,tf_frame_prefix,rate); //uses tf server
-			driver->startListening();
-			imuLogger = driver->initializeLogger();
-			initializeLoggers(loggerFileNameIMUs,&imuLogger);
-			imuCalibrationLogger = driver->initializeCalibrationValuesLogger();
-			initializeLoggers("calib", &imuCalibrationLogger);
+			if (useOrientationMarkers){
+				calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
+				ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix" << tf_frame_prefix << " and rate: " << rate );
+				driver = new UIMUInputDriver(imuObservationOrder,tf_frame_prefix,rate); //uses tf server
+				driver->startListening();
+				imuLogger = driver->initializeLogger();
+				initializeLoggers(loggerFileNameIMUs,&imuLogger);
+				imuCalibrationLogger = driver->initializeCalibrationValuesLogger();
+				initializeLoggers("calib", &imuCalibrationLogger);
 
-			// calibrator
-			ROS_DEBUG_STREAM("Setting up IMUCalibrator");
-			clb = new IMUCalibrator(model, driver, imuObservationOrder);
+				// calibrator
+				ROS_DEBUG_STREAM("Setting up IMUCalibrator");
+				clb = new IMUCalibrator(model, driver, imuObservationOrder);
+				doCalibrate();
+			}
 
-
-			doCalibrate();
 
 			define_tasks();
 			start_ik();
@@ -653,25 +672,33 @@ class UIMUnode: Ros::CommonNode
 			ROS_DEBUG_STREAM("onInit finished just fine.");
 		}
 
+		double last_time = -1.1;
 		void run() {
+			ROS_DEBUG_STREAM("started to run");
 			int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
 			try { // main loop
-				while (!driver->shouldTerminate()) {
+				while (ros::ok()) {
 					opensimrt_msgs::CommonTimed msg;
 					std_msgs::Header h;
 					h.stamp = ros::Time::now();
 					h.frame_id = "subject";
 					msg.header = h;
 
-					// get input from imus
-					ROS_DEBUG_STREAM("Getting frame:");
-					auto imuData = driver->getFrame();
-
 					SimTK::Array_<SimTK::Vec3> markerObservations;
+					std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
+					double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
+					if (useOrientationMarkers)
+					{
+						// get input from imus
+						ROS_DEBUG_STREAM("Getting frame:");
+						imuData = driver->getFrame();
+						this_time = imuData.first;
+					}
 					if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 					{
-						markerObservations = tfPointGetter->get_translations();
-
+						ROS_DEBUG_STREAM("Getting marker frame:");
+						markerObservations = pointGetter->get_translations();
+						this_time = pointGetter->last_time;
 					}
 
 					ROS_DEBUG_STREAM("Solving inverse kinematics:" );
@@ -681,9 +708,13 @@ class UIMUnode: Ros::CommonNode
 					chrono::high_resolution_clock::time_point t1;
 					t1 = chrono::high_resolution_clock::now();
 
+					if (last_time == this_time)
+					{
+						ROS_WARN_THROTTLE(1,"run() rate exceeds data update rate.");
+					}
 					auto pose = ik->solve(
-							{imuData.first, markerObservations, clb->transform(imuData.second)});
-
+							{this_time, markerObservations, clb->transform(imuData.second)});
+					last_time = this_time;
 					addEvent("ik",msg);
 					chrono::high_resolution_clock::time_point t2;
 					t2 = chrono::high_resolution_clock::now();
@@ -739,7 +770,8 @@ class UIMUnode: Ros::CommonNode
 					if (isRecording())
 					{
 						ROS_WARN_ONCE("Recording!");
-						imuLogger.appendRow(pose.t, driver->frame);//
+						if(useOrientationMarkers)
+							imuLogger.appendRow(pose.t, driver->frame);//
 						qRawLogger.appendRow(pose.t, ~pose.q);
 					}
 					previousTime = pose.t;

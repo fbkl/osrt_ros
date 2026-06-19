@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 		ros::init(argc, argv, "online_lower_limb_uimu_ik");
 		ros::NodeHandle n;
 
-		if (true && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info)) {ros::console::notifyLoggerLevelsChanged();}
+		if (true && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
 		UIMUnode o;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
