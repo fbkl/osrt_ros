@@ -243,7 +243,7 @@ class GetPointFromMarkers:public GetPoint
 	ros::Subscriber marker_sub;
 	std::unordered_map<std::string, vicon_bridge::Marker> marker_map;
 
-	double multiplier=1000.0;
+	double multiplier=0.001;
 	void callback(const vicon_bridge::MarkersPtr& msg)
 	{
 		//not in the right order, we need a freaking map, right?	
@@ -301,9 +301,9 @@ class GetPointFromMarkers:public GetPoint
 			const auto& this_Marker = marker_map[this_marker_name];
 
 			//if you are in a hurry just hard code the transform here because we just want it to work now.
-			v.set(0, this_Marker.translation.x);
-			v.set(1, this_Marker.translation.y);
-			v.set(2, this_Marker.translation.z);
+			v.set(0, this_Marker.translation.x*multiplier);
+			v.set(1, this_Marker.translation.y*multiplier);
+			v.set(2, this_Marker.translation.z*multiplier);
 			// since the name order is fixed, this order should also be fixed, so it is okay
 			markerObservations.push_back(v);
 

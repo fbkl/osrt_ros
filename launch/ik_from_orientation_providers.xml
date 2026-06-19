@@ -70,7 +70,7 @@
 		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
-		<rosparam command="load" file="$(find osrt_ros)/config/mobl_markers.yaml" param="marker/observation_order" />
+		<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
 
 
 	</node>
@@ -122,7 +122,7 @@
 		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
-		<rosparam command="load" file="$(find osrt_ros)/config/mobl_markers.yaml" param="marker/observation_order" />
+		<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
 
 	</node>
 	<!-- param name="human_model" command="$(find osrt_ros)/human_publisher_mini_node $(arg model_file) 1> /dev/null 2> /dev/null; cat /tmp/converted_model.urdf"/ -->
