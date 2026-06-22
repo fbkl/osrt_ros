@@ -36,7 +36,7 @@ find_package(catkin REQUIRED COMPONENTS
         vicon_bridge
 	)
 find_package(assimp REQUIRED)
-find_package(VTK REQUIRED COMPONENTS vtkIOXML vtkIOGeometry vtkIOPLY)
+find_package(VTK REQUIRED COMPONENTS vtkIOXML vtkIOGeometry vtkIOPLY vtkCommonDataModel vtkFiltersCore)
 include(${VTK_USE_FILE})
 
 #find_package(Simbody REQUIRED PATHS "/opt/dependencies/opensim-core/dependencies/simbody/lib/cmake/simbody/")

@@ -94,6 +94,7 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 						ROS_DEBUG_STREAM( "The actual file, hopefully: " << inmesh << "" );
 
+						//std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
 						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".stl";
 
 						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
