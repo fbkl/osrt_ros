@@ -95,6 +95,7 @@ class GetPoint
 		XmlRpc::XmlRpcValue markerList;
 		std::vector<MyMarker> mmList;
 		double last_time{0.0};
+
 		GetPoint() 
 		{
 
@@ -155,7 +156,7 @@ class GetPoint
 			return markerObservations;
 		}
 };
-class GetPointFromSomeTF: public GetPoint
+class GetPointFromSomeTF: public GetPoint // to make this a threaded implementation we need also do run a rated loop here, not going to do that yet, but if you want fast AR, you probably should try it.
 {
 	//tf::TransformListener tl;
 	tf2_ros::Buffer tfBuffer;
@@ -240,12 +241,14 @@ class GetPointFromSomeTF: public GetPoint
 
 class GetPointFromMarkers:public GetPoint
 {
+ 		std::shared_ptr<std::mutex> mtx_;
 	ros::Subscriber marker_sub;
 	std::unordered_map<std::string, vicon_bridge::Marker> marker_map;
 
 	double multiplier=0.001;
 	void callback(const vicon_bridge::MarkersPtr& msg)
 	{
+		std::lock_guard<std::mutex> lock(*mtx_);
 		//not in the right order, we need a freaking map, right?	
 		for (auto& marker:msg->markers)
 		{
@@ -258,9 +261,11 @@ class GetPointFromMarkers:public GetPoint
 
 	GetPointFromMarkers() 
 	{
+		mtx_ = std::make_shared<std::mutex>();
 		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
 
 		try{	
+			std::lock_guard<std::mutex> lock(*mtx_);
 			ROS_INFO_STREAM("AR: parsing points and vicon marker map");
 			for (int32_t i = 0; i < markerList.size(); ++i) 
 			{
@@ -290,6 +295,7 @@ class GetPointFromMarkers:public GetPoint
 	SimTK::Array_<SimTK::Vec3> get_translations() override
 	{
 		SimTK::Array_<SimTK::Vec3> markerObservations;
+			std::lock_guard<std::mutex> lock(*mtx_);
 
 		//TODO:REPLACE
 		for (const auto& this_marker_name:markerNames)
@@ -353,7 +359,6 @@ class UIMUnode: Ros::CommonNode
 		OpenSim::Model model;
 
 		GetPoint* pointGetter;
-
 
 		void get_params()
 		{
@@ -674,7 +679,10 @@ class UIMUnode: Ros::CommonNode
 
 		double last_time = -1.1;
 		void run() {
+
 			ROS_DEBUG_STREAM("started to run");
+			ros::AsyncSpinner spinner(4);
+			spinner.start();
 			int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
 			try { // main loop
 				while (ros::ok()) {
@@ -711,7 +719,6 @@ class UIMUnode: Ros::CommonNode
 					if (last_time == this_time)
 					{
 						ROS_WARN_THROTTLE(1,"run() rate exceeds data update rate.");
-						ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
 						r->sleep();
 						continue;
 					}
@@ -779,11 +786,6 @@ class UIMUnode: Ros::CommonNode
 					}
 					previousTime = pose.t;
 					previousDt = Dt;
-					if(!ros::ok())
-						break;
-					if(i%10 == 0)  // we answer calls only every 10 loops, maybe this is faster idk
-						ros::spinOnce(); //this is necessary to be able to respond to service calls!!!!!
-
 					std_msgs::Int64 time_ik_msg;
 					time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
 					time_ik_pub.publish(time_ik_msg);
