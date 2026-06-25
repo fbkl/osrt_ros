@@ -53,8 +53,8 @@
 		<param name="logger_filename_ik" 		value="_ik_$(arg name_tag)" />
 		<param name="logger_filename_imus" 		value="_imus_$(arg name_tag)" />
 		<param name="data_save_dir" 		value="/tmp" />
-		<remap from="output" 		to="/ik/output"/>
-		<remap from="output_filtered" 	to="/ik/output_filtered"/>
+		<!-- remap from="output" 		to="/ik/output"/ -->
+		<!-- remap from="output_filtered" 	to="/ik/output_filtered"/ -->
 		
 		<!-- Filter values for filtered output -->
 		<param name="filter_output" 		value="true" />
@@ -105,8 +105,8 @@
 		<param name="logger_filename_ik" 		value="_ik_$(arg name_tag)" />
 		<param name="logger_filename_imus" 		value="_imus_$(arg name_tag)" />
 		<param name="data_save_dir" 		value="/tmp" />
-		<remap from="output" 		to="/ik/output"/>
-		<remap from="output_filtered" 	to="/ik/output_filtered"/>
+		<!-- remap from="output" 		to="/ik/output"/ -->
+		<!-- remap from="output_filtered" 	to="/ik/output_filtered"/ -->
 		
 		<!-- Filter values for filtered output -->
 		<param name="filter_output" 		value="true" />

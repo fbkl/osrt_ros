@@ -718,7 +718,7 @@ class UIMUnode: Ros::CommonNode
 
 					if (last_time == this_time)
 					{
-						ROS_WARN_THROTTLE(1,"run() rate exceeds data update rate.");
+						ROS_WARN_ONCE("run() rate exceeds data update rate.");
 						r->sleep();
 						continue;
 					}
