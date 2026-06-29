@@ -26,7 +26,6 @@ class OrientationProvider
 	std::string subjectDir, modelFile;
     
 	static tf::TransformBroadcaster br;
-	static tf::TransformListener listener;
 
 };
 #endif

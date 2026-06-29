@@ -30,6 +30,7 @@ See https://github.com/mysablehats/osrt_ros.git
   <depend>tf2_ros</depend>
   <depend>rviz</depend>
   <depend>urdf</depend>
+  <depend>vicon_bridge</depend>
   <depend>pluginlib</depend>
   <depend>qtbase5-dev</depend>
   <export>

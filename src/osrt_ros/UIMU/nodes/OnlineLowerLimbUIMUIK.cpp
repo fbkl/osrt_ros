@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
 		ros::init(argc, argv, "online_lower_limb_uimu_ik");
 		ros::NodeHandle n;
 
-		if (false && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
+		if (true && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
 		UIMUnode o;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
 		dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
@@ -52,7 +52,6 @@ int main(int argc, char** argv) {
 			//
 			ros::ServiceServer ss = nh.advertiseService("start_now", wait_callback);
 
-			ROS_WARN("not_tested");
 			while (!start_now)
 			{
 				ROS_INFO_STREAM_THROTTLE(1,"Waiting to start");

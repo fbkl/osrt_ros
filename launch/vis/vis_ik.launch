@@ -1,14 +1,27 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
+	<machine name="frkle-Predator-PT515-52" address="frkle-Predator-PT515-52" env-loader="/home/frkle/github/docker-opensimrt/scripts/docker_ros_loader.sh" user="frkle"/>
 	<arg name="model_file" 	default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" />
+	<arg name="machine" 		default=""/>
+	<arg name="name_tag"		default="lower"/>
+	<arg name="ik_node_name" 			default="ik_$(arg name_tag)body_node"/>
 
-        <node pkg="osrt_ros" type="vis_ik" 	name="ik_visualization" output="screen">
+        <node pkg="osrt_ros" type="vis_ik" 	name="ik_visualization" output="log" machine="$(arg machine)" if="$(eval arg('machine') != '')">
                 <param name="model_file" 		value="$(arg model_file)" />
 		<rosparam param="geometry_path_list">['/srv/data/geometry_v3.3','/srv/host_data/Geo'] </rosparam>
 		<param name="which_model_1_2" 		value="2" />
 
-		<remap from="/ik_visualization/input_filtered" to="/ik/output_filtered"/>
-		<remap from="/in_labels" to="/ik/out_labels"/>
+		<remap from="/ik_visualization/input_filtered" to="/$(arg ik_node_name)/output_filtered"/>
+		<remap from="/in_labels" to="/$(arg ik_node_name)/out_labels"/>
+		
+        </node>
+        <node pkg="osrt_ros" type="vis_ik" 	name="ik_visualization" output="screen" if="$(eval arg('machine') == '' )">
+                <param name="model_file" 		value="$(arg model_file)" />
+		<rosparam param="geometry_path_list">['/srv/data/geometry_v3.3','/srv/host_data/Geo'] </rosparam>
+		<param name="which_model_1_2" 		value="2" />
+
+		<remap from="/ik_visualization/input_filtered" to="/$(arg ik_node_name)/output_filtered"/>
+		<remap from="/in_labels" to="/$(arg ik_node_name)/out_labels"/>
 		
         </node>
 

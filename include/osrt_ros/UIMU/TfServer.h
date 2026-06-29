@@ -21,9 +21,8 @@ class TfServer: public OrientationProvider {
  public:
 	TfServer(std::vector<std::string> tf_names = {"a", "b", "c"}, std::string tf_frame_prefix = "not_set");
 	~TfServer();
-	bool receive();
+	bool receive() override;
 
-	tf::TransformListener listener;
 	//std::vector<double> output;
 	void readTransform(std::string);
 	std::vector<double> readTransformIntoOpensim(std::string);
@@ -32,6 +31,7 @@ class TfServer: public OrientationProvider {
 	void set_world_reference(std::string);
 	void set_tfs(std::vector<std::string> tf_names, std::string tf_frame_prefix);
 	std::map<std::string,tf::StampedTransform> last_transforms;
+	tf::TransformListener listener;
 	
 
 };
