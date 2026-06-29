@@ -2,122 +2,128 @@
 <launch>
 	<include file="$(find vio_launch)/launch/includes/machines.xml"/>
 	<!-- -->
-	<arg name="freq" 				default="100" />
-	<arg name="name_tag" 			default="lower" />
-	<arg name="ik_node_name" 			default="ik_$(arg name_tag)body_node"/>
-	<arg name="tf_prefix" 				default=""/>
-	<arg name="bypass_heading_computation" 		default="false"/>
-	<arg name="heading_debug"			default="0"/>
-	<arg name="heading_offset"			default="0"/>
-	<arg name="visualise" 				default="false" />
-	<arg name="wait_to_start"	default="false"/>
-	<arg name="use_sim_time"	default="false"/>
-	<!--arg name="model_file" 		default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
-	<arg name="model_file" 		default="/srv/host_data/fk.osim" />
-	<arg name="imu_base_body" 		default="pelvis" />
-	<arg name="imu_direction_axis" 			default="z" />
-	<arg name="machine" 		default=""/>
-	
-	<arg name="use_position_markers"		  default="false"/>
-	<arg name="use_orientation_markers"		  default="true"/>
+	<arg name="freq"                                default="100" />
+	<arg name="name_tag"                    default="lower" />
+	<arg name="ik_node_name"                        default="ik_$(arg name_tag)body_node"/>
+	<arg name="tf_prefix"                           default=""/>
+	<arg name="bypass_heading_computation"          default="false"/>
+	<arg name="heading_debug"                       default="0"/>
+	<arg name="heading_offset"                      default="0"/>
+	<arg name="visualise"                           default="false" />
+	<arg name="wait_to_start"       default="false"/>
+	<arg name="use_sim_time"        default="false"/>
+	<!--arg name="model_file"               default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
+	<arg name="model_file"          default="/srv/host_data/fk.osim" />
+	<arg name="imu_base_body"               default="pelvis" />
+	<arg name="imu_direction_axis"                  default="z" />
+	<arg name="machine"             default=""/>
+
+	<arg name="use_position_markers"                  default="false"/>
+	<arg name="use_orientation_markers"               default="true"/>
 	<!-- this is so stupid, but I don't know of another way of doing it -->
 	<!-- also logging is bugged with ssh execution, so for these nodes we will have to read the logs!-->
-	<arg name="point_getter_type" 		  default="tf"/>
-	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" machine="$(arg machine)" output="log" if="$(eval arg('machine') != '')">
-		<param name="point_getter_type" 		  value="$(arg point_getter_type)"/>
-		<param name="use_position_markers"		  value="$(arg use_position_markers)"/>
-		<param name="use_orientation_markers"		  value="$(arg use_orientation_markers)"/>
-		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
-		<!-- param name="resample_period" 		value="0.01" / -->
-		<param name="model_file" 		value="$(arg model_file)" />
-		<!--param name="model_file" 		value="scale/model_scaled.osim" / -->
-		<param name="imu_base_body" 		value="$(arg imu_base_body)" />
+	<arg name="point_getter_type"             default="tf"/>
+	<arg name="ns"                          default=""/>
+	<group ns="$(arg ns)">
+		<node pkg="osrt_ros" type="OnlineLowerLimb"     name="$(arg ik_node_name)" machine="$(arg machine)" output="log" if="$(eval arg('machine') != '')">
+			<param name="point_getter_type"                   value="$(arg point_getter_type)"/>
+			<param name="use_position_markers"                value="$(arg use_position_markers)"/>
+			<param name="use_orientation_markers"             value="$(arg use_orientation_markers)"/>
+			<param name="/use_sim_time" value="$(arg use_sim_time)"/>
+			<!-- param name="resample_period"               value="0.01" / -->
+			<param name="model_file"                value="$(arg model_file)" />
+			<!--param name="model_file"             value="scale/model_scaled.osim" / -->
+			<param name="imu_base_body"             value="$(arg imu_base_body)" />
 
-		<param name="visualise"			value="$(arg visualise)"/>
-		<!-- OK, this is confusing as hell-->
-		<!-- but let's break it down. the tf_prefix is to allow for multiple skeletons from different parts to be shown-->
-		<!-- OK, this is confusing as hell-->
-		<!-- OK, this is confusing as hell-->
-		<param name="tf_prefix" value="$(arg tf_prefix)"/>
 
-		<!-- OK, this is confusing as hell-->
-		<!-- however tf_frame_prefix is the source of tf, either imu or ar right now, that will be put before the name so we can have both of these at the same time. they could be shared, i think in the future, but this is more flexible.-->
+			<param name="visualise"                 value="$(arg visualise)"/>
+			<!-- OK, this is confusing as hell-->
+			<!-- but let's break it down. the tf_prefix is to allow for multiple skeletons from different parts to be shown-->
+			<!-- OK, this is confusing as hell-->
+			<!-- OK, this is confusing as hell-->
+			<param name="tf_prefix" value="$(arg tf_prefix)"/>
 
-		<param name="imu_tf_world_reference" 		value="imu_ref_ori" />
+			<!-- OK, this is confusing as hell-->
+			<!-- however tf_frame_prefix is the source of tf, either imu or ar right now, that will be put before the name so we can have both of these at the same time. they could be shared, i think in the future, but this is more flexible.-->
+
+			<param name="imu_tf_world_reference"            value="imu_ref_ori" />
+			<!-- if you setup the next line to be the subject_heading, since currently this is the publication frame for the IMUs as well, then the heading values will not have any effect. -->
+			<!--param name="imu_tf_world_reference"                 value="subject_heading" / -->
+			<param name="tf_frame_prefix"           value="imu" />
+
+			<param name="imu_direction_axis"                value="$(arg imu_direction_axis)" />
+			<param name="rate"                              value="$(arg freq)" />
+			<param name="logger_filename_ik"                value="_ik_$(arg name_tag)" />
+			<param name="logger_filename_imus"              value="_imus_$(arg name_tag)" />
+			<param name="data_save_dir"             value="/tmp" />
+
+			<remap from="output"            to="ik/output"/>
+			<remap from="output_filtered"   to="ik/output_filtered"/>
+
+			<!-- Filter values for filtered output -->
+			<param name="filter_output"             value="true" />
+			<rosparam command="load" file="$(find osrt_ros)/config/filter.yaml"/>
+
+			<param name="wait_to_start"     value="$(arg wait_to_start)" />
+			<!-- Debug options -->
+
+			<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
+			<param name="marker/tf_timeout"         value="0.01" />
+			<param name="marker/tf_frame_prefix"    value="ar" />
+			<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
+			<param name="marker/world_tf_reference" value="opensim_frame" />
+			<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
+
+			<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
+
+
+		</node>
+
+		<node pkg="osrt_ros" type="OnlineLowerLimb"     name="$(arg ik_node_name)" output="screen" if="$(eval arg('machine') == '' )">
+			<param name="point_getter_type"                   value="$(arg point_getter_type)"/>
+			<param name="use_position_markers"                value="$(arg use_position_markers)"/>
+			<param name="use_orientation_markers"             value="$(arg use_orientation_markers)"/>
+			<param name="/use_sim_time" value="$(arg use_sim_time)"/>
+			<!-- param name="resample_period"               value="0.01" / -->
+			<param name="model_file"                value="$(arg model_file)" />
+			<!--param name="model_file"             value="scale/model_scaled.osim" / -->
+			<param name="imu_base_body"             value="$(arg imu_base_body)" />
+
+			<param name="visualise"                 value="$(arg visualise)"/>
+			<!-- OK, this is confusing as hell-->
+			<!-- but let's break it down. the tf_prefix is to allow for multiple skeletons from different parts to be shown-->
+			<!-- OK, this is confusing as hell-->
+			<!-- OK, this is confusing as hell-->
+			<param name="tf_prefix" value="$(arg tf_prefix)"/>
+
+			<!-- OK, this is confusing as hell-->
+			<!-- however tf_frame_prefix is the source of tf, either imu or ar right now, that will be put before the name so we can have both of these at the same time. they could be shared, i think in the future, but this is more flexible.-->
+			<!--rosparam param="imu_observation_order" >['thorax','radius']</rosparam -->
+
+		<param name="imu_tf_world_reference"            value="imu_ref_ori" />
 		<!-- if you setup the next line to be the subject_heading, since currently this is the publication frame for the IMUs as well, then the heading values will not have any effect. -->
-		<!--param name="imu_tf_world_reference" 		value="subject_heading" / -->
-		<param name="tf_frame_prefix" 		value="imu" />
+		<!--param name="imu_tf_world_reference"                 value="subject_heading" / -->
+		<param name="tf_frame_prefix"           value="imu" />
 
-		<param name="imu_direction_axis" 		value="$(arg imu_direction_axis)" />
-		<param name="rate" 				value="$(arg freq)" />
-		<param name="logger_filename_ik" 		value="_ik_$(arg name_tag)" />
-		<param name="logger_filename_imus" 		value="_imus_$(arg name_tag)" />
-		<param name="data_save_dir" 		value="/tmp" />
-		<!-- remap from="output" 		to="/ik/output"/ -->
-		<!-- remap from="output_filtered" 	to="/ik/output_filtered"/ -->
-		
+		<param name="imu_direction_axis"                value="$(arg imu_direction_axis)" />
+		<param name="rate"                              value="$(arg freq)" />
+		<param name="logger_filename_ik"                value="_ik_$(arg name_tag)" />
+		<param name="logger_filename_imus"              value="_imus_$(arg name_tag)" />
+		<param name="data_save_dir"             value="/tmp" />
+
+		<remap from="output"            to="ik/output"/>
+		<remap from="output_filtered"   to="ik/output_filtered"/>
+
 		<!-- Filter values for filtered output -->
-		<param name="filter_output" 		value="true" />
+		<param name="filter_output"             value="true" />
 		<rosparam command="load" file="$(find osrt_ros)/config/filter.yaml"/>
 
-		<param name="wait_to_start" 	value="$(arg wait_to_start)" />
+		<param name="wait_to_start"     value="$(arg wait_to_start)" />
 		<!-- Debug options -->
 
 		<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
-		<param name="marker/tf_timeout" 	value="0.01" />
-		<param name="marker/tf_frame_prefix" 	value="ar" />
-		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
-		<param name="marker/world_tf_reference" value="opensim_frame" />
-		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
-
-		<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
-
-
-	</node>
-
-	<node pkg="osrt_ros" type="OnlineLowerLimb" 	name="$(arg ik_node_name)" output="screen" if="$(eval arg('machine') == '' )">
-		<param name="point_getter_type" 		  value="$(arg point_getter_type)"/>
-		<param name="use_position_markers"		  value="$(arg use_position_markers)"/>
-		<param name="use_orientation_markers"		  value="$(arg use_orientation_markers)"/>
-		<param name="/use_sim_time" value="$(arg use_sim_time)"/>
-		<!-- param name="resample_period" 		value="0.01" / -->
-		<param name="model_file" 		value="$(arg model_file)" />
-		<!--param name="model_file" 		value="scale/model_scaled.osim" / -->
-		<param name="imu_base_body" 		value="$(arg imu_base_body)" />
-
-		<param name="visualise"			value="$(arg visualise)"/>
-		<!-- OK, this is confusing as hell-->
-		<!-- but let's break it down. the tf_prefix is to allow for multiple skeletons from different parts to be shown-->
-		<!-- OK, this is confusing as hell-->
-		<!-- OK, this is confusing as hell-->
-		<param name="tf_prefix" value="$(arg tf_prefix)"/>
-
-		<!-- OK, this is confusing as hell-->
-		<!-- however tf_frame_prefix is the source of tf, either imu or ar right now, that will be put before the name so we can have both of these at the same time. they could be shared, i think in the future, but this is more flexible.-->
-
-		<param name="imu_tf_world_reference" 		value="imu_ref_ori" />
-		<!-- if you setup the next line to be the subject_heading, since currently this is the publication frame for the IMUs as well, then the heading values will not have any effect. -->
-		<!--param name="imu_tf_world_reference" 		value="subject_heading" / -->
-		<param name="tf_frame_prefix" 		value="imu" />
-
-		<param name="imu_direction_axis" 		value="$(arg imu_direction_axis)" />
-		<param name="rate" 				value="$(arg freq)" />
-		<param name="logger_filename_ik" 		value="_ik_$(arg name_tag)" />
-		<param name="logger_filename_imus" 		value="_imus_$(arg name_tag)" />
-		<param name="data_save_dir" 		value="/tmp" />
-		<!-- remap from="output" 		to="/ik/output"/ -->
-		<!-- remap from="output_filtered" 	to="/ik/output_filtered"/ -->
-		
-		<!-- Filter values for filtered output -->
-		<param name="filter_output" 		value="true" />
-		<rosparam command="load" file="$(find osrt_ros)/config/filter.yaml"/>
-
-		<param name="wait_to_start" 	value="$(arg wait_to_start)" />
-		<!-- Debug options -->
-
-		<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
-		<param name="marker/tf_timeout" 	value="0.01" />
-		<param name="marker/tf_frame_prefix" 	value="ar" />
+		<param name="marker/tf_timeout"         value="0.01" />
+		<param name="marker/tf_frame_prefix"    value="ar" />
 		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
 		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
@@ -126,7 +132,6 @@
 
 	</node>
 	<!-- param name="human_model" command="$(find osrt_ros)/human_publisher_mini_node $(arg model_file) 1> /dev/null 2> /dev/null; cat /tmp/converted_model.urdf"/ -->
-
-</launch>
-
+</group>
+																																																																																																																														</launch>
 
