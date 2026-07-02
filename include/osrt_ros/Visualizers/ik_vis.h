@@ -10,6 +10,7 @@ namespace Visualizers
 {
 	class IkVis:public Visualizers::VisualizerCommon
 	{
+		std::string own_tf_prefix;
 		void callback(const opensimrt_msgs::CommonTimedConstPtr &msg_ik ); 
 		void callback_filtered(const opensimrt_msgs::PosVelAccTimedConstPtr &msg_ik );
 		void before_vis() {
@@ -20,7 +21,9 @@ namespace Visualizers
 
 		};
 		void after_vis() {
-			visualizer->tf_prefix = "ik/";
+
+			nh.param<std::string>("own_tf_prefix", own_tf_prefix, "ik/");
+			visualizer->tf_prefix = own_tf_prefix;
 			model_reset();
 		}
 		void after_callback() {};

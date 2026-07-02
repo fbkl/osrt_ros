@@ -13,6 +13,7 @@
 	<arg name="wait_to_start"       default="false"/>
 	<arg name="use_sim_time"        default="false"/>
 	<!--arg name="model_file"               default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
+	<arg name="model"          default="raquegopal" />
 	<arg name="model_file"          default="/srv/host_data/fk.osim" />
 	<arg name="imu_base_body"               default="pelvis" />
 	<arg name="imu_direction_axis"                  default="z" />
@@ -74,7 +75,7 @@
 			<param name="marker/world_tf_reference" value="opensim_frame" />
 			<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
-			<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
+			<rosparam command="load" file="$(find vicon_rviz_markers)/config/$(arg model)_markers.yaml" param="marker/observation_order" />
 
 
 		</node>
@@ -128,7 +129,7 @@
 		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
-		<rosparam command="load" file="$(find vicon_rviz_markers)/config/mobl_markers.yaml" param="marker/observation_order" />
+		<rosparam command="load" file="$(find vicon_rviz_markers)/config/$(arg model)_markers.yaml" param="marker/observation_order" />
 
 	</node>
 	<!-- param name="human_model" command="$(find osrt_ros)/human_publisher_mini_node $(arg model_file) 1> /dev/null 2> /dev/null; cat /tmp/converted_model.urdf"/ -->
