@@ -80,7 +80,7 @@
 
 		</node>
 
-		<node pkg="osrt_ros" type="OnlineLowerLimb"     name="$(arg ik_node_name)" output="screen" if="$(eval arg('machine') == '' )">
+		<node pkg="osrt_ros" type="OnlineLowerLimb"     name="$(arg ik_node_name)" output="screen" if="$(eval arg('machine') == '' )" >
 			<param name="point_getter_type"                   value="$(arg point_getter_type)"/>
 			<param name="use_position_markers"                value="$(arg use_position_markers)"/>
 			<param name="use_orientation_markers"             value="$(arg use_orientation_markers)"/>

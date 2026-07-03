@@ -357,23 +357,29 @@ void UIMUnode::run() {
 	//spinner.start();
 	try { // main loop
 		int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
-		while (ros::ok()) {
-			ROS_YE("=======================================================================================================");
+		chrono::high_resolution_clock::time_point t0;
+			chrono::high_resolution_clock::time_point t1;
+			chrono::high_resolution_clock::time_point t2;
 			opensimrt_msgs::CommonTimed msg;
 			std_msgs::Header h;
-			h.stamp = ros::Time::now();
 			h.frame_id = "subject";
-			msg.header = h;
-
 			TransObs markerObservations;
 			std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
 			double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
+			SimTK::Array_<SimTK::Rotation> transformedOris;
+		while (ros::ok()) {
+			//ROS_YE("=======================================================================================================");
+			t0 = chrono::high_resolution_clock::now();
+			h.stamp = ros::Time::now();
+			msg.header = h;
+
 			if (useOrientationMarkers)
 			{
 				// get input from imus
 				ROS_DEBUG_STREAM("Getting frame:");
 				imuData = driver->getFrame();
 				this_time = imuData.first;
+				transformedOris = clb->transform(imuData.second);
 			}
 			if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 			{
@@ -394,7 +400,6 @@ void UIMUnode::run() {
 			numFrames++;
 
 			// solve ik
-			chrono::high_resolution_clock::time_point t1;
 			t1 = chrono::high_resolution_clock::now();
 
 			if (last_time == this_time)
@@ -404,18 +409,18 @@ void UIMUnode::run() {
 				r->sleep();
 				continue;
 			}
+			//for(int iii = 0 ; iii< markerObservations.first.size();iii++)
+			//	ROS_INFO_STREAM(markerObservations.first[iii]);
 			auto pose = ik->solve(
-					{this_time, markerObservations.first, clb->transform(imuData.second)});
+					{this_time, markerObservations.first, transformedOris });
 			last_time = this_time;
 			addEvent("ik",msg);
-			chrono::high_resolution_clock::time_point t2;
 			t2 = chrono::high_resolution_clock::now();
-			sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1)
-				.count();
+			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 			ROS_DEBUG_STREAM( "pose is:" << pose.q);
 
 			//msg.data.push_back(pose.t);
-			Osb::update_pose(msg, pose.t, pose.q);
+			//Osb::update_pose(msg, pose.t, pose.q); //we are using the observer from vis_ik, right?
 			double Dt = pose.t-previousTime;
 			double jitter = Dt-previousDt;
 
@@ -423,6 +428,7 @@ void UIMUnode::run() {
 			ROS_DEBUG_STREAM("delta_t   :" << Dt);
 			ROS_DEBUG_STREAM("T (pose.t):" << pose.t);
 
+			/*
 			if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
 				for (const auto& joint_angle:pose.q)
 				{
@@ -431,8 +437,8 @@ void UIMUnode::run() {
 					j_msg.data = joint_angle*180/3.14159265;
 					plottable_outputs[i].publish(j_msg);
 				}
-			else ROS_ERROR("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
-
+			else ROS_ERROR_ONCE("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
+*/
 			pub.publish(msg); //not working
 			if(publish_filtered)
 			{
@@ -467,7 +473,7 @@ void UIMUnode::run() {
 			previousTime = pose.t;
 			previousDt = Dt;
 			std_msgs::Int64 time_ik_msg;
-			time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+			time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t0).count();
 			time_ik_pub.publish(time_ik_msg);
 
 			chrono::high_resolution_clock::time_point t3;
@@ -486,7 +492,7 @@ void UIMUnode::run() {
 		driver->shouldTerminate(true);
 	}
 
-	cout << "Mean delay: " << (double) sumDelayMS / numFrames << " ms" << endl;
+	//cout << "Mean delay: " << (double) sumDelayMS / numFrames << " ms" << endl;
 
 	//CSVFileAdapter::write( qRawLogger, loggerFileNameIK);
 	//CSVFileAdapter::write( imuLogger, loggerFileNameIMUs);
