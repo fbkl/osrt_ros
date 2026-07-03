@@ -386,7 +386,7 @@ void UIMUnode::run() {
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
 				{
 					auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
-					ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
+//ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
 			
 				}
 			}
