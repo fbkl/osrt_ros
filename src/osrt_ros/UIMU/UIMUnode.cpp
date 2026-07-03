@@ -365,7 +365,7 @@ void UIMUnode::run() {
 			h.frame_id = "subject";
 			msg.header = h;
 
-			SimTK::Array_<SimTK::Vec3> markerObservations;
+			TransObs markerObservations;
 			std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
 			double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
 			if (useOrientationMarkers)
@@ -380,8 +380,16 @@ void UIMUnode::run() {
 				ROS_DEBUG_STREAM("Getting marker frame:");
 				markerObservations = pointGetter->get_translations();
 				this_time = pointGetter->last_time;
-			}
+				// so maybe we want to have also another list with the marker qualities
+				
 
+				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
+				{
+					auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
+					ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
+			
+				}
+			}
 			ROS_DEBUG_STREAM("Solving inverse kinematics:" );
 			numFrames++;
 
@@ -397,7 +405,7 @@ void UIMUnode::run() {
 				continue;
 			}
 			auto pose = ik->solve(
-					{this_time, markerObservations, clb->transform(imuData.second)});
+					{this_time, markerObservations.first, clb->transform(imuData.second)});
 			last_time = this_time;
 			addEvent("ik",msg);
 			chrono::high_resolution_clock::time_point t2;

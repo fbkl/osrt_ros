@@ -58,6 +58,8 @@
 #include <vicon_bridge/Markers.h>
 #include <vicon_bridge/Marker.h>
 
+#include <cmath> // Required for NAN. also cfloat is the c++26 version
+
 using namespace std;
 using namespace OpenSim;
 using namespace OpenSimRT;
@@ -73,6 +75,8 @@ const std::string reset("\033[0m");
 const std::string bar("\n======================================================\n");
 
 #define ROS_YE(x) ROS_INFO_STREAM( yellow << x << reset)
+
+typedef std::pair<SimTK::Array_<SimTK::Vec3>,SimTK::Array_< SimTK::Real>> TransObs; 
 
 class MyMarker
 {
@@ -148,9 +152,9 @@ class GetPoint
 
 		}
 
-		virtual SimTK::Array_<SimTK::Vec3> get_translations()
+		virtual TransObs get_translations()
 		{
-			SimTK::Array_<SimTK::Vec3> markerObservations;
+			TransObs markerObservations;
 
 			//remove and place in the derived
 
@@ -218,10 +222,12 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 		ROS_INFO("AR: Finished setting up markers");
 
 	}
-	SimTK::Array_<SimTK::Vec3> get_translations() override
+	TransObs get_translations() override
 	{
-		SimTK::Array_<SimTK::Vec3> markerObservations;
+		TransObs markerObservations;
 
+		SimTK::Array_<SimTK::Vec3> actualObservations;
+		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 		for (const auto& [this_marker_name, this_marker_tf] : markerDefList)
 		{
 			SimTK::Vec3 v;
@@ -241,9 +247,12 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 			v.set(0, transform.transform.translation.x);
 			v.set(1, transform.transform.translation.y);
 			v.set(2, transform.transform.translation.z);
-			markerObservations.push_back(v);
+			actualObservations.push_back(v);
+			accuracyOfObservations.push_back( 1); // we don't have a marker quality value here
 
 		}
+		markerObservations.first = actualObservations;
+		markerObservations.second = accuracyOfObservations;
 
 		return markerObservations;
 	}
@@ -302,10 +311,13 @@ class GetPointFromMarkers:public GetPoint
 
 
 	}
-	SimTK::Array_<SimTK::Vec3> get_translations() override
+	TransObs get_translations() override
 	{
-		SimTK::Array_<SimTK::Vec3> markerObservations;
+		TransObs markerObservations;
 			std::lock_guard<std::mutex> lock(*mtx_);
+		
+		SimTK::Array_<SimTK::Vec3> actualObservations;
+		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 
 		//TODO:REPLACE
 		for (const auto& this_marker_name:markerNames)
@@ -321,9 +333,14 @@ class GetPointFromMarkers:public GetPoint
 			v.set(1, this_Marker.translation.y*multiplier);
 			v.set(2, this_Marker.translation.z*multiplier);
 			// since the name order is fixed, this order should also be fixed, so it is okay
-			markerObservations.push_back(v);
+			
+			actualObservations.push_back(v);
+			accuracyOfObservations.push_back(this_Marker.occluded ? NAN : 1.0); // according to the docs from SimTK, this is what we want
 
 		}
+		markerObservations.first = actualObservations;
+		markerObservations.second = accuracyOfObservations;
+		
 
 		return markerObservations;
 	}
