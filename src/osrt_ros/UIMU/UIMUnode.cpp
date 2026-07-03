@@ -353,8 +353,8 @@ void UIMUnode::onInit()
 void UIMUnode::run() {
 
 	ROS_DEBUG_STREAM("started to run");
-	//ros::AsyncSpinner spinner(4);
-	//spinner.start();
+	ros::AsyncSpinner spinner(4);
+	spinner.start();
 	try { // main loop
 		int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
 		chrono::high_resolution_clock::time_point t0;
@@ -483,7 +483,7 @@ void UIMUnode::run() {
 			time_pub.publish(time_msg);
 
 			i++;
-			ros::spinOnce();
+			//ros::spinOnce();
 			r->sleep();
 		}
 	} catch (std::exception& e) {
