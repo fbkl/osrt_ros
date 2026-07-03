@@ -14,7 +14,7 @@
 	<arg name="use_sim_time"        default="false"/>
 	<!--arg name="model_file"               default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
 	<arg name="model"          default="raquegopal" />
-	<arg name="model_file"          default="/srv/host_data/fk.osim" />
+	<arg name="model_file"          default="/srv/host_data/$(arg model)/$(arg model).osim" />
 	<arg name="imu_base_body"               default="pelvis" />
 	<arg name="imu_direction_axis"                  default="z" />
 	<arg name="machine"             default=""/>
