@@ -44,6 +44,7 @@ namespace Visualizers
 			Ros::Reshuffler input;
 			OpenSim::Object* muscleModel;
 			ros::ServiceServer resetModelSrv;
+			std::string vis_name;
 			
 			bool resetModel(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 			{
@@ -66,6 +67,8 @@ namespace Visualizers
 				ROS_INFO_STREAM("Using modelFile:" << modelFile);
 				nh.param<int>("which_model_1_2", m, 2);
 				ROS_DEBUG_STREAM("Finished getting params.");	
+				
+				nh.param<std::string>("vis_name", vis_name, "");
 
 			}
 			void registerType(OpenSim::Object* muscleModel) //do I even need this?
@@ -98,6 +101,8 @@ namespace Visualizers
 					default:
 						throw std::invalid_argument( "I can use 1, upper or 2, lower. this is hardcoded." );
 				}
+				
+					
 
 				pars::setGeometryPath(nh);
 				before_vis();
@@ -120,6 +125,14 @@ namespace Visualizers
 				}
 				visualizer->setVisualizer();
 				visualizer->publish_transforms = true;
+				
+				OpenSimRT::BasicModelVisualizer* vvv = dynamic_cast<OpenSimRT::BasicModelVisualizer*>(visualizer);
+				if (vvv != nullptr){
+				std::string actualTitle = model->getName().empty() ? "<unnamed>" : model->getName() ;
+				actualTitle+= " " +  sub.getTopic() + " " + vis_name;
+				auto& viz = vvv->visualizer;
+				viz->setWindowTitle(actualTitle);
+				}
 				after_vis();	
 
 				ROS_DEBUG_STREAM("onInit finished just fine.");
