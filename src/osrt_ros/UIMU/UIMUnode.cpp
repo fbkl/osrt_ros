@@ -353,13 +353,9 @@ void UIMUnode::onInit()
 void UIMUnode::run() {
 
 	ROS_DEBUG_STREAM("started to run");
-	ros::AsyncSpinner spinner(4);
-	spinner.start();
+	//ros::AsyncSpinner spinner(4);
+	//spinner.start();
 	try { // main loop
-		int i = 0; // we dont need to react to service calls and other things every loop, we can have it wait, like 200ms or so, since this can be an expensive call,,, let's see if that improves the running times 
-		chrono::high_resolution_clock::time_point t0;
-			chrono::high_resolution_clock::time_point t1;
-			chrono::high_resolution_clock::time_point t2;
 			opensimrt_msgs::CommonTimed msg;
 			std_msgs::Header h;
 			h.frame_id = "subject";
@@ -372,7 +368,6 @@ void UIMUnode::run() {
 			
 			msg.events = opensimrt_msgs::Events();
 			addEvent("run_start",msg);
-			t0 = chrono::high_resolution_clock::now();
 			h.stamp = ros::Time::now();
 			msg.header = h;
 
@@ -405,7 +400,6 @@ void UIMUnode::run() {
 			numFrames++;
 
 			// solve ik
-			t1 = chrono::high_resolution_clock::now();
 
 			if (last_time == this_time)
 			{
@@ -421,18 +415,10 @@ void UIMUnode::run() {
 					{this_time, markerObservations.first, transformedOris });
 			last_time = this_time;
 			addEvent("ik",msg);
-			t2 = chrono::high_resolution_clock::now();
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
-			ROS_DEBUG_STREAM( "pose is:" << pose.q);
 
 			//msg.data.push_back(pose.t);
 			//Osb::update_pose(msg, pose.t, pose.q); //we are using the observer from vis_ik, right?
-			double Dt = pose.t-previousTime;
-			double jitter = Dt-previousDt;
-
-			ROS_DEBUG_STREAM("jitter(us):" << jitter*1000000);
-			ROS_DEBUG_STREAM("delta_t   :" << Dt);
-			ROS_DEBUG_STREAM("T (pose.t):" << pose.t);
 
 			/*
 			if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
@@ -476,21 +462,9 @@ void UIMUnode::run() {
 					imuLogger.appendRow(pose.t, driver->frame);//
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
-			previousTime = pose.t;
-			previousDt = Dt;
-			std_msgs::Int64 time_ik_msg;
-			time_ik_msg.data = chrono::duration_cast<chrono::microseconds>(t2 - t0).count();
-			time_ik_pub.publish(time_ik_msg);
 
-			chrono::high_resolution_clock::time_point t3;
-			t3 = chrono::high_resolution_clock::now();
-			std_msgs::Int64 time_msg;
-			time_msg.data = std::chrono::duration_cast<std::chrono::microseconds>(t3 -t1).count();
-			time_pub.publish(time_msg);
-
-			i++;
-			//ros::spinOnce();
-			r->sleep();
+			ros::spinOnce();
+			//r->sleep();
 		}
 	} catch (std::exception& e) {
 		cout << e.what() << endl;

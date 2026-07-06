@@ -19,17 +19,8 @@ int main(int argc, char** argv) {
 
 		if (false && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
 		UIMUnode o;
-		dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
-		dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
-		f = boost::bind(&UIMUnode::reconfigure_callback, &o, _1, _2);
-		server.setCallback(f);
 
 		ros::NodeHandle nh("~");
-		ros::NodeHandle nh1(nh, "heading");
-		dynamic_reconfigure::Server<osrt_ros::headingConfig> heading_server_(nh1);
-		dynamic_reconfigure::Server<osrt_ros::headingConfig>::CallbackType f2;
-		f2 = boost::bind(&UIMUnode::reconfigure_heading_callback, &o, _1, _2);
-		heading_server_.setCallback(f2);
 		// either like this:
 		muscleModel = new OpenSim::Thelen2003Muscle();
 		o.registerType(muscleModel);
