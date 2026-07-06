@@ -370,6 +370,7 @@ void UIMUnode::run() {
 		while (ros::ok()) {
 			//ROS_YE("=======================================================================================================");
 			
+			msg.events = opensimrt_msgs::Events();
 			addEvent("run_start",msg);
 			t0 = chrono::high_resolution_clock::now();
 			h.stamp = ros::Time::now();
