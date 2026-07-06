@@ -369,6 +369,8 @@ void UIMUnode::run() {
 			SimTK::Array_<SimTK::Rotation> transformedOris;
 		while (ros::ok()) {
 			//ROS_YE("=======================================================================================================");
+			
+			addEvent("run_start",msg);
 			t0 = chrono::high_resolution_clock::now();
 			h.stamp = ros::Time::now();
 			msg.header = h;
@@ -380,6 +382,7 @@ void UIMUnode::run() {
 				imuData = driver->getFrame();
 				this_time = imuData.first;
 				transformedOris = clb->transform(imuData.second);
+				addEvent("got_ori_frame",msg);
 			}
 			if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 			{
@@ -395,6 +398,7 @@ void UIMUnode::run() {
 //ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
 			
 				}
+				addEvent("got_pos_frame",msg);
 			}
 			ROS_DEBUG_STREAM("Solving inverse kinematics:" );
 			numFrames++;
@@ -411,6 +415,7 @@ void UIMUnode::run() {
 			}
 			//for(int iii = 0 ; iii< markerObservations.first.size();iii++)
 			//	ROS_INFO_STREAM(markerObservations.first[iii]);
+			addEvent("got_data",msg);
 			auto pose = ik->solve(
 					{this_time, markerObservations.first, transformedOris });
 			last_time = this_time;
@@ -439,7 +444,7 @@ void UIMUnode::run() {
 				}
 			else ROS_ERROR_ONCE("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
 */
-			pub.publish(msg); //not working
+			pub.publish(msg); 
 			if(publish_filtered)
 			{
 				auto ikFiltered = ikfilter->filter({pose.t, pose.q});
