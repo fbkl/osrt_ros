@@ -266,9 +266,11 @@ class GetPointFromMarkers:public GetPoint
 	
 	TransObs markerObservations;
 
+	chrono::high_resolution_clock::time_point t0 ;
 	double multiplier=0.001;
 	void callback(const vicon_bridge::MarkersPtr& msg)
 	{
+		chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
 		std::lock_guard<std::mutex> lock(*mtx_);
 		//not in the right order, we need a freaking map, right?	
 		for (const auto& marker:msg->markers)
@@ -302,6 +304,12 @@ class GetPointFromMarkers:public GetPoint
 		markerObservations.first = actualObservations;
 		markerObservations.second = accuracyOfObservations;
 		
+		chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
+		double dur_own_code = chrono::duration_cast<chrono::nanoseconds>(t2-t1).count();
+		double dur_between = chrono::duration_cast<chrono::nanoseconds>(t2-t0).count();
+		ROS_YE(bar << "time between calls duration in ns:"<<magenta<<dur_between<<"\nduration own call"<<dur_own_code<<bar<<"fps:"<<1000000000.0/dur_between<<"fps own:"<<1000000000.0/dur_own_code<<bar <<reset);
+
+			t0 = t2;
 
 	}
 	public:
@@ -309,7 +317,7 @@ class GetPointFromMarkers:public GetPoint
 	GetPointFromMarkers() : mtx_(std::make_shared<std::mutex>())
 
 	{
-		
+		t0=chrono::high_resolution_clock::now() ;
 		std::lock_guard<std::mutex> lock(*mtx_);
 
 		try{	
@@ -360,14 +368,12 @@ class GetPointFromMarkers:public GetPoint
 		markerObservations.first = actualObservations;
 		markerObservations.second = accuracyOfObservations;
 
-		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
-
+		marker_sub = nh.subscribe("/vicon/markers", 1,&GetPointFromMarkers::callback, this,ros::TransportHints().tcpNoDelay());
 	}
 	TransObs get_translations() override
 	{
 			std::lock_guard<std::mutex> lock(*mtx_);
 		
-
 		return markerObservations;
 	}
 };

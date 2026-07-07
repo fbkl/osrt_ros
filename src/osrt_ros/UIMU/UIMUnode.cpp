@@ -353,12 +353,10 @@ void UIMUnode::onInit()
 void UIMUnode::run() {
 
 	ROS_DEBUG_STREAM("started to run");
-	//ros::AsyncSpinner spinner(4);
-	//spinner.start();
 	bool keep_running=true;
 	int ij = 0;
 	int runs_to_log= 4;
-	auto faster_rate = ros::Rate(rate*10);
+	auto faster_rate = ros::Rate(rate*2);
 	try { // main loop
 			opensimrt_msgs::CommonTimed msg;
 			std_msgs::Header h;
@@ -369,11 +367,6 @@ void UIMUnode::run() {
 			SimTK::Array_<SimTK::Rotation> transformedOris;
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
-			if (ij%runs_to_log == 0) {
-				ij = 0;
-			}
-			
-			addEvent("run_start"+std::to_string(ij),msg);
 			h.stamp = ros::Time::now();
 			msg.header = h;
 
@@ -388,7 +381,6 @@ void UIMUnode::run() {
 			}
 			if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 			{
-				ROS_DEBUG_STREAM("Getting marker frame:");
 				markerObservations = pointGetter->get_translations();
 				this_time = pointGetter->last_time;
 				while (last_time == this_time)
@@ -403,24 +395,20 @@ void UIMUnode::run() {
 
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
 				{
-					auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
+				//	auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
 //ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
 			
 				}
-				addEvent("got_pos_frame"+std::to_string(ij),msg);
 			}
-			ROS_DEBUG_STREAM("Solving inverse kinematics:" );
-			numFrames++;
+			//numFrames++;
 
 			// solve ik
 
 			//for(int iii = 0 ; iii< markerObservations.first.size();iii++)
 			//	ROS_INFO_STREAM(markerObservations.first[iii]);
-			addEvent("got_data"+std::to_string(ij),msg);
 			auto pose = ik->solve(
 					{this_time, markerObservations.first, transformedOris });
 			last_time = this_time;
-			addEvent("ik"+std::to_string(ij),msg);
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 
 			//msg.data.push_back(pose.t);
@@ -438,22 +426,17 @@ void UIMUnode::run() {
 			else ROS_ERROR_ONCE("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
 */
 			pub.publish(msg); 
-			addEvent("afternormal_pub"+std::to_string(ij),msg);
-			if(publish_filtered)
+			if(false &&publish_filtered)
 			{
 				auto ikFiltered = ikfilter->filter({pose.t, pose.q});
 				auto q = ikFiltered.x;
 				auto qDot = ikFiltered.xDot;
 				auto qDDot = ikFiltered.xDDot;
-				ROS_DEBUG_STREAM("Filter ran ok");
 				if (!ikFiltered.isValid) {
 					ROS_DEBUG_STREAM("filter results are NOT valid");
 					continue; }
-				ROS_DEBUG_STREAM("Filter results are valid");
-				addEvent("afterfilter"+std::to_string(ij),msg);
 				opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
 				pub_filtered.publish(msg_filtered); // not working
-				addEvent("afterfilter_pub"+std::to_string(ij),msg);
 
 				//adding the data to the loggers
 				if (isRecording())
@@ -471,17 +454,9 @@ void UIMUnode::run() {
 					imuLogger.appendRow(pose.t, driver->frame);//
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
-			if (ij%runs_to_log == 0) {
-				msg.events = opensimrt_msgs::Events();
-				keep_running = ros::ok();
-				addEvent("afterrosok"+std::to_string(ij),msg);
-				ros::spinOnce();
-				addEvent("afterspinonce"+std::to_string(ij),msg);
-			}
 
-		//	r->sleep();
-			addEvent("NOrate"+std::to_string(ij),msg);
-			ij++;
+			ros::spinOnce();
+			r->sleep();
 		}
 	} catch (std::exception& e) {
 		cout << e.what() << endl;

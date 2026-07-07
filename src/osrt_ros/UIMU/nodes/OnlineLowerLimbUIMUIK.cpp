@@ -17,7 +17,8 @@ int main(int argc, char** argv) {
 		ros::init(argc, argv, "online_lower_limb_uimu_ik");
 		ros::NodeHandle n;
 
-		if (true && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
+		//if (false && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
+		if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal)) {ros::console::notifyLoggerLevelsChanged();}
 		UIMUnode o;
 
 		ros::NodeHandle nh("~");
@@ -50,6 +51,9 @@ int main(int argc, char** argv) {
 				ros::spinOnce();
 			}
 		}
+	ros::AsyncSpinner* s;
+		s = new ros::AsyncSpinner(4);
+		s->start();
 
 		o.onInit();
 		o.run();
