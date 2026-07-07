@@ -353,8 +353,8 @@ void UIMUnode::onInit()
 void UIMUnode::run() {
 
 	ROS_DEBUG_STREAM("started to run");
-	ros::AsyncSpinner spinner(4);
-	spinner.start();
+	//ros::AsyncSpinner spinner(4);
+	//spinner.start();
 	bool keep_running=true;
 	int ij = 0;
 	int runs_to_log= 4;
@@ -479,8 +479,8 @@ void UIMUnode::run() {
 				addEvent("afterspinonce"+std::to_string(ij),msg);
 			}
 
-			r->sleep();
-			addEvent("afterrate"+std::to_string(ij),msg);
+		//	r->sleep();
+			addEvent("NOrate"+std::to_string(ij),msg);
 			ij++;
 		}
 	} catch (std::exception& e) {

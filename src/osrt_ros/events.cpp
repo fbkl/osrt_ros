@@ -16,6 +16,9 @@ void addEvent(std::string event_name, opensimrt_msgs::CommonTimed & msg)
 {
 	opensimrt_msgs::Event e;
 	addEvent(event_name, e);
+	if (!msg.events.list.empty()) {
+		e.header.seq = msg.events.list.back().header.seq +1;
+	}
 	msg.events.list.push_back(e);
 
 }
@@ -24,6 +27,9 @@ void addEvent(std::string event_name, opensimrt_msgs::Events & ee)
 {
 	opensimrt_msgs::Event e;
 	addEvent(event_name, e);
+	if (!ee.list.empty()) {
+		e.header.seq = ee.list.back().header.seq +1;
+	}
 	ee.list.push_back(e);
 
 }

@@ -263,6 +263,8 @@ class GetPointFromMarkers:public GetPoint
  		std::shared_ptr<std::mutex> mtx_;
 	ros::Subscriber marker_sub;
 	std::unordered_map<std::string, vicon_bridge::Marker> marker_map;
+	
+	TransObs markerObservations;
 
 	double multiplier=0.001;
 	void callback(const vicon_bridge::MarkersPtr& msg)
@@ -274,47 +276,6 @@ class GetPointFromMarkers:public GetPoint
 			marker_map[marker.marker_name] = marker;
 		}
 		last_time = msg->header.stamp.toSec();
-
-	}
-	public:
-
-	GetPointFromMarkers() : mtx_(std::make_shared<std::mutex>())
-
-	{
-		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
-
-		try{	
-			std::lock_guard<std::mutex> lock(*mtx_);
-			ROS_INFO_STREAM("AR: parsing points and vicon marker map");
-			for (int32_t i = 0; i < markerList.size(); ++i) 
-			{
-				ROS_INFO("AR vicon : Entered loop");
-				auto a = mmList[i];
-				vicon_bridge::Marker this_marker;		
-
-				this_marker.translation.x = a.x*multiplier;
-				this_marker.translation.y = a.y*multiplier;
-				this_marker.translation.z = a.z*multiplier;
-				this_marker.marker_name = a.this_marker_name;
-				//latest_marker_vec.push_back(this_marker); //NO! i am initializing the MAP here, not this vector which we dont use
-				marker_map[a.this_marker_name] = this_marker;
-				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE VICON MARKER AT LEAST"<<reset);
-			}
-			//for (auto& marker:markerNames)
-			//	marker+=tf_frame_prefix;
-		}
-		catch(XmlRpc::XmlRpcException& e)
-		{
-			ROS_ERROR_STREAM("AR: Could not setup vicon markers" << e.getMessage());
-		}
-		ROS_INFO("AR: Finished setting up vicon markers");
-
-
-	}
-	TransObs get_translations() override
-	{
-		TransObs markerObservations;
-			std::lock_guard<std::mutex> lock(*mtx_);
 		
 		SimTK::Array_<SimTK::Vec3> actualObservations;
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
@@ -340,6 +301,71 @@ class GetPointFromMarkers:public GetPoint
 		}
 		markerObservations.first = actualObservations;
 		markerObservations.second = accuracyOfObservations;
+		
+
+	}
+	public:
+
+	GetPointFromMarkers() : mtx_(std::make_shared<std::mutex>())
+
+	{
+		
+		std::lock_guard<std::mutex> lock(*mtx_);
+
+		try{	
+			ROS_INFO_STREAM("AR: parsing points and vicon marker map");
+			for (int32_t i = 0; i < markerList.size(); ++i)  //what is this doing? shouldnt it be only the thing below?
+			{
+				ROS_INFO("AR vicon : Entered loop");
+				auto a = mmList[i];
+				vicon_bridge::Marker this_marker;		
+
+				this_marker.translation.x = a.x*multiplier;
+				this_marker.translation.y = a.y*multiplier;
+				this_marker.translation.z = a.z*multiplier;
+				this_marker.marker_name = a.this_marker_name;
+				//latest_marker_vec.push_back(this_marker); //NO! i am initializing the MAP here, not this vector which we dont use
+				marker_map[a.this_marker_name] = this_marker;
+				ROS_INFO_STREAM(cyan <<"FINISHED SETTING UP ONE VICON MARKER AT LEAST"<<reset);
+			}
+			//for (auto& marker:markerNames)
+			//	marker+=tf_frame_prefix;
+		}
+		catch(XmlRpc::XmlRpcException& e)
+		{
+			ROS_ERROR_STREAM("AR: Could not setup vicon markers" << e.getMessage());
+		}
+		ROS_INFO("AR: Finished setting up vicon markers");
+		
+		SimTK::Array_<SimTK::Vec3> actualObservations;
+		SimTK::Array_<SimTK::Real> accuracyOfObservations;
+		for (const auto& this_marker_name:markerNames)
+			//			for (const auto& [this_marker_name, this_Marker] : marker_map)
+		{
+			SimTK::Vec3 v;
+
+			// now we find the latest marker in the unordered map
+			const auto& this_Marker = marker_map[this_marker_name];
+
+			//if you are in a hurry just hard code the transform here because we just want it to work now.
+			v.set(0, this_Marker.translation.x*multiplier);
+			v.set(1, this_Marker.translation.y*multiplier);
+			v.set(2, this_Marker.translation.z*multiplier);
+			// since the name order is fixed, this order should also be fixed, so it is okay
+			
+			actualObservations.push_back(v);
+			accuracyOfObservations.push_back(this_Marker.occluded ? NAN : 1.0); // according to the docs from SimTK, this is what we want
+
+		}
+		markerObservations.first = actualObservations;
+		markerObservations.second = accuracyOfObservations;
+
+		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
+
+	}
+	TransObs get_translations() override
+	{
+			std::lock_guard<std::mutex> lock(*mtx_);
 		
 
 		return markerObservations;

@@ -32,6 +32,9 @@ opensimrt_msgs::Events addEvent(std::string event_name, T msg_t)
 	addEvent(event_name, e);
 	const std::vector<opensimrt_msgs::Event> ee = msg_t->events.list;
 	std::vector<opensimrt_msgs::Event> eee = ee;
+	if (!msg_t->events.list.empty()) {
+		e.header.seq = msg_t->events.list.back().header.seq +1;
+	}
 	eee.push_back(e);
 	opensimrt_msgs::Events allEvents;
 	allEvents.list = eee;
