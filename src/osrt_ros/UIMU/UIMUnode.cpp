@@ -358,6 +358,7 @@ void UIMUnode::run() {
 	bool keep_running=true;
 	int ij = 0;
 	int runs_to_log= 4;
+	auto faster_rate = ros::Rate(rate*10);
 	try { // main loop
 			opensimrt_msgs::CommonTimed msg;
 			std_msgs::Header h;
@@ -369,7 +370,6 @@ void UIMUnode::run() {
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
 			if (ij%runs_to_log == 0) {
-				msg.events = opensimrt_msgs::Events();
 				ij = 0;
 			}
 			
@@ -391,6 +391,13 @@ void UIMUnode::run() {
 				ROS_DEBUG_STREAM("Getting marker frame:");
 				markerObservations = pointGetter->get_translations();
 				this_time = pointGetter->last_time;
+				while (last_time == this_time)
+				{
+					ros::spinOnce();
+					faster_rate.sleep();
+					markerObservations = pointGetter->get_translations();
+					this_time = pointGetter->last_time;
+				}
 				// so maybe we want to have also another list with the marker qualities
 				
 
@@ -407,13 +414,6 @@ void UIMUnode::run() {
 
 			// solve ik
 
-			if (last_time == this_time)
-			{
-				ROS_WARN_ONCE("run() rate exceeds data update rate.");
-				ros::spinOnce();
-				r->sleep();
-				continue;
-			}
 			//for(int iii = 0 ; iii< markerObservations.first.size();iii++)
 			//	ROS_INFO_STREAM(markerObservations.first[iii]);
 			addEvent("got_data"+std::to_string(ij),msg);
@@ -471,8 +471,8 @@ void UIMUnode::run() {
 					imuLogger.appendRow(pose.t, driver->frame);//
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
-			ij++;
 			if (ij%runs_to_log == 0) {
+				msg.events = opensimrt_msgs::Events();
 				keep_running = ros::ok();
 				addEvent("afterrosok"+std::to_string(ij),msg);
 				ros::spinOnce();
@@ -481,6 +481,7 @@ void UIMUnode::run() {
 
 			r->sleep();
 			addEvent("afterrate"+std::to_string(ij),msg);
+			ij++;
 		}
 	} catch (std::exception& e) {
 		cout << e.what() << endl;
