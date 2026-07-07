@@ -281,7 +281,7 @@ class GetPointFromMarkers:public GetPoint
 	GetPointFromMarkers() : mtx_(std::make_shared<std::mutex>())
 
 	{
-		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this);
+		marker_sub = nh.subscribe("/vicon/markers", 10,&GetPointFromMarkers::callback, this, ros::TransportHints().tcpNoDelay());
 
 		try{	
 			std::lock_guard<std::mutex> lock(*mtx_);
