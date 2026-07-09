@@ -175,7 +175,7 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 	public:
 	GetPointFromSomeTF(): tfListener(tfBuffer), tf_timeout(0.0) 
 	{
-		nh.param<double>("tf_timeout",tf_timeout,0.05);
+		nh.param<double>("tf_timeout",tf_timeout,0.01); // here the timeout was too large. we should probably warn about it
 		nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
 		nh.param<std::string>("tf_frame_prefix",tf_frame_prefix,"not_set");
 		try{	

@@ -25,6 +25,7 @@
 	<!-- also logging is bugged with ssh execution, so for these nodes we will have to read the logs!-->
 	<arg name="point_getter_type"             default="tf"/>
 	<arg name="ns"                          default=""/>
+	<arg name="filter_output"             default="true" />
 	<group ns="$(arg ns)">
 		<node pkg="osrt_ros" type="OnlineLowerLimb"     name="$(arg ik_node_name)" machine="$(arg machine)" output="log" if="$(eval arg('machine') != '')">
 			<param name="point_getter_type"                   value="$(arg point_getter_type)"/>
@@ -62,7 +63,7 @@
 			<remap from="output_filtered"   to="ik/output_filtered"/>
 
 			<!-- Filter values for filtered output -->
-			<param name="filter_output"             value="true" />
+			<param name="filter_output"             value="$(arg filter_output)" />
 			<rosparam command="load" file="$(find osrt_ros)/config/filter.yaml"/>
 
 			<param name="wait_to_start"     value="$(arg wait_to_start)" />
@@ -116,7 +117,7 @@
 		<remap from="output_filtered"   to="ik/output_filtered"/>
 
 		<!-- Filter values for filtered output -->
-		<param name="filter_output"             value="true" />
+		<param name="filter_output"             value="$(arg filter_output)" />
 		<rosparam command="load" file="$(find osrt_ros)/config/filter.yaml"/>
 
 		<param name="wait_to_start"     value="$(arg wait_to_start)" />
