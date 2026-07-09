@@ -172,6 +172,9 @@ namespace Visualizers
 			void callback(const opensimrt_msgs::CommonTimedConstPtr &msg_ik ) {
 				try { // main loop
 				      // unroll
+				        if(msg_ik->data.size()==0) {
+						ROS_FATAL_THROTTLE(1,"No data in topic!");
+					}
 					SimTK::Vector q(msg_ik->data.size());
 					for (size_t i=0;i<msg_ik->data.size();i++)
 					{
@@ -187,6 +190,9 @@ namespace Visualizers
 			void callback_filtered(const opensimrt_msgs::PosVelAccTimedConstPtr &msg_ik ) {
 				try { // main loop filtered
 				      // unroll
+				        if(msg_ik->d0_data.size()==0) {
+						ROS_FATAL_THROTTLE(1,"No data in filtered topic!");
+					}
 					SimTK::Vector q(msg_ik->d0_data.size());
 					for (size_t i=0;i<msg_ik->d0_data.size();i++)
 					{

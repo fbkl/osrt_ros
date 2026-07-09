@@ -422,7 +422,7 @@ void UIMUnode::run() {
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 
 			//msg.data.push_back(pose.t);
-			//Osb::update_pose(msg, pose.t, pose.q); //we are using the observer from vis_ik, right?
+			Osb::update_pose(msg, pose.t, pose.q); //we are using the observer from vis_ik, right?
 
 			/*
 			if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
