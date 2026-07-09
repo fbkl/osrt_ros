@@ -422,8 +422,9 @@ void UIMUnode::run() {
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 
 			//msg.data.push_back(pose.t);
-			Osb::update_pose(msg, pose.t, pose.q); //we are using the observer from vis_ik, right?
-
+			msg.data = std::vector<double>(); //TODO: we should change this in Osb::update_pose, i think 
+			Osb::update_pose(msg, pose.t, pose.q); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
+			
 			/*
 			if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
 				for (const auto& joint_angle:pose.q)
