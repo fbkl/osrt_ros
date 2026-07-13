@@ -26,6 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 	opensimrt
 	opensimrt_msgs
 	opensimrt_bridge
+	resource_retriever	
 	roscpp
 	rosdoc_lite
 	rviz
@@ -265,3 +266,17 @@ if(BUILD_RVIZ_PLUGIN)
 
 endif()
 
+add_library(lib_urdf_to_osim src/urdf_to_osim.cpp)
+target_link_libraries(lib_urdf_to_osim ${catkin_LIBRARIES} ${OpenSim_LIBRARIES})
+
+install(
+	TARGETS lib_urdf_to_osim
+	ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+	LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+	RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+
+
+## urdf_to_osim executable (rosrun)
+add_executable(urdf_to_osim src/urdf_to_osim.cpp)
+target_link_libraries(urdf_to_osim assimp ${catkin_LIBRARIES} ${OpenSim_LIBRARIES} lib_urdf_to_osim)

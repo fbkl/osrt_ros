@@ -7,6 +7,7 @@
 #include <osrt_ros/osim_to_urdf.h>
 #include <osrt_ros/meshasstl.h>
 #include <ros/ros.h>
+#include <filesystem>
 
 
 SimTK::String OsimToUrdf::writeVec3(SimTK::Vec3 myvec)
@@ -72,17 +73,18 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 						this_viz.mesh_scale = mesh->get_scale_factors();
 
-						std::string meshName =  mesh->get_mesh_file();
+						std::filesystem::path meshName =  mesh->get_mesh_file();
+//std::filesystem::path p("c:/dir/dir/file.ext");
 
-						ROS_DEBUG_STREAM("Parsing mesh: " << meshName);
-						ROS_INFO("oirhjg");
+						ROS_INFO_STREAM("Parsing mesh: " << meshName.filename());
+						
 						//this_viz.mesh_filename = "/srv/data/geometry_v3.3/" + mesh->get_mesh_file(); //sadly we cant load vtp files directly into rviz so we need to convert them beforehand to stl
 						//
 						//auto inmesh = SimTK::Pathname::getAbsolutePathnameUsingSpecifiedWorkingDirectory(osim_path, mesh->get_mesh_file());
 						std::string inmesh = "";
 						SimTK::Array_<std::string> attempts;
 						bool isAbsolutePath = false;
-						if (OpenSim::ModelVisualizer::findGeometryFile(model, meshName, isAbsolutePath, attempts))
+						if (OpenSim::ModelVisualizer::findGeometryFile(model, meshName.filename(), isAbsolutePath, attempts))
 						{
 							inmesh = attempts.back();
 						}
@@ -92,10 +94,10 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 						}
 
-						ROS_DEBUG_STREAM( "The actual file, hopefully: " << inmesh << "" );
+						ROS_INFO_STREAM( "The actual file, hopefully: " << inmesh << "" );
 
-						//std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
-						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".stl";
+						std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
+						//std::string outmesh = "/tmp/" + meshName.stem().string() + ".stl";
 
 						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
 
