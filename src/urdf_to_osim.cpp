@@ -1,3 +1,5 @@
+//from https://github.com/martinandrovich/hric-system checkout their work, i bastardized it here.
+
 #include "osrt_ros/urdf_to_osim.h"
 
 #include <wordexp.h>
