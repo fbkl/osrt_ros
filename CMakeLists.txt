@@ -29,6 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
 	resource_retriever	
 	roscpp
 	rosdoc_lite
+	rospy
 	rviz
 	sensor_msgs
 	tf
@@ -50,6 +51,7 @@ add_custom_target(${PROJECT_NAME}_docs ALL
   COMMAND rosdoc_lite -o docs ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Generating Doxygen documentation"
 )
+catkin_python_setup()
 
 generate_dynamic_reconfigure_options(
 	cfg/UIMU.cfg
@@ -74,6 +76,7 @@ find_package(opensimrt REQUIRED COMPONENTS
 find_package(opensimrt_bridge REQUIRED COMPONENTS
 	conversions
 	)
+
 
 catkin_package(
 	INCLUDE_DIRS include
