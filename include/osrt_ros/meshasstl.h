@@ -16,7 +16,9 @@
 int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmesh_filename)
 {
 	std::cout << "in: " << inmesh_filename << "\nout:" << outmesh_filename <<std::endl;
-	std::string intermediate_mesh_name = boost::filesystem::path(outmesh_filename).stem().string()+".stl"; //+".ply";
+	auto mmesh_name = boost::filesystem::path(outmesh_filename).stem();
+	auto mmesh_dir  = boost::filesystem::path(outmesh_filename).parent_path();
+	std::string intermediate_mesh_name = (mmesh_dir / mmesh_name).string()+".stl"; //+".ply";
 
 	std::string mesh_format = "collada";
 	if(boost::filesystem::path(outmesh_filename).extension().string() == ".stl")
@@ -33,7 +35,7 @@ int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmes
 		reader->SetFileName(inmesh_filename.c_str());
 		reader->Update();
 		
-		/*
+		
 		auto tri = vtkSmartPointer<vtkTriangleFilter>::New();
 		tri->SetInputConnection(reader->GetOutputPort());
 
@@ -42,22 +44,22 @@ int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmes
 		normals->ConsistencyOn();
 		normals->AutoOrientNormalsOn();
 		normals->SplittingOff();
-		*/
+		
 
 
 		//auto writer = vtkSmartPointer<vtkOBJWriter>::New(); // we need at least vtk 8.2 for this afff....
 		auto writer = vtkSmartPointer<vtkSTLWriter>::New();
 		//auto writer = vtkSmartPointer<vtkPLYWriter>::New();
 		writer->SetFileName(intermediate_mesh_name.c_str());
-		writer->SetInputConnection(reader->GetOutputPort());
-		//writer->SetInputConnection(normals->GetOutputPort());
+		//writer->SetInputConnection(reader->GetOutputPort());
+		writer->SetInputConnection(normals->GetOutputPort());
 		writer->Write();
 		if (mesh_format == "stl")
 		{
-			std::cout << "final mesh created" << intermediate_mesh_name << std::endl;
+			std::cout << "final mesh created: " << intermediate_mesh_name << std::endl;
 			return 0;
 		}
-		std::cout <<"intermediate mesh created:" << intermediate_mesh_name << std::endl;
+		std::cout << "intermediate mesh created: " << intermediate_mesh_name << std::endl;
 		
 	}
 	else intermediate_mesh_name = inmesh_filename;
