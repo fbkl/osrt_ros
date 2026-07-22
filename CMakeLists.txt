@@ -218,7 +218,7 @@ target_link_libraries(o_node
 
 ##testing assimp and vtk at the same time:
 add_executable(assimp_test src/osrt_ros/assimp.cpp)
-target_link_libraries(assimp_test assimp ${VTK_LIBRARIES})
+target_link_libraries(assimp_test assimp ${VTK_LIBRARIES} ${catkin_LIBRARIES})
 
 
 set(BUILD_RVIZ_PLUGIN ON)

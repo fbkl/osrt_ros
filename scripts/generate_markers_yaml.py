@@ -13,6 +13,8 @@ def parse_markers(osim_path):
     """
     Parses the .osim file and returns a dict with the params for the UIMU node
     """
+    osim.Logger.setLevel(osim.Logger.Level_Off)
+    osim.Logger.removeFileSink()
     tree = ET.parse(osim_path)
     root = tree.getroot()
     markers = []
@@ -31,7 +33,7 @@ def parse_markers(osim_path):
     # Get marker set
     marker_set = model.getMarkerSet()
 
-    print("Marker positions in GLOBAL coordinates (default pose):\n")
+    #print("Marker positions in GLOBAL coordinates (default pose):\n")
 
     a = {}
     # Loop through markers
@@ -61,7 +63,8 @@ def parse_markers(osim_path):
             'default_position': a[name]
         })
 
-    return {'observation_order': markers}
+    #return {'observation_order': markers}
+    return markers
 
 if __name__ == '__main__':
     DATA = parse_markers(sys.argv[1])

@@ -3,8 +3,8 @@
 int main(int argc, char* argv[])
 {
 
-	std::string inmesh_filename = "/srv/host_data/foot_r.obj";
-	std::string outmesh_filename = "/srv/host_data/foot_r.stl" ;
+	std::string inmesh_filename = "/srv/host_data/example.obj";
+	std::string outmesh_filename = "/srv/host_data/example.stl" ;
 
 	writeMeshAsStl(inmesh_filename, outmesh_filename);	
 	
