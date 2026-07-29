@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+	<!-- Loads /tmp/converted_model.urdf (written by osim_to_simple_urdf, see
+	     scripts/test_mesh_conversion.bash) and displays it in rviz for visually
+	     comparing mesh-conversion switches (MESHCONV_* in meshasstl.h) against
+	     each other, without going through the full flexbe pipeline.
+	     link_0 has no parent joint in the generated URDF (ground-parent joints
+	     are skipped), so it's the natural fixed frame. -->
+	<arg name="urdf_file" 		default="/tmp/converted_model.urdf" />
+	<arg name="fixed_frame" 	default="link_0" />
+
+	<param name="robot_description" textfile="$(arg urdf_file)" />
+
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	<node name="rviz" pkg="rviz" type="rviz" args="-f $(arg fixed_frame)" />
+</launch>

@@ -26,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 	opensimrt
 	opensimrt_msgs
 	opensimrt_bridge
-	resource_retriever	
+	resource_retriever
 	roscpp
 	rosdoc_lite
 	rospy

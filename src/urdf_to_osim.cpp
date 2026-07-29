@@ -4,6 +4,7 @@
 
 #include <wordexp.h>
 #include <string>
+#include <vector>
 #include <boost/filesystem.hpp>
 
 #include <ros/ros.h>
@@ -146,10 +147,17 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 		// get location and orientation in parent
 		if (const auto& origin = &link->parent_joint->parent_to_joint_origin_transform)
 		{
-			double roll, pitch, yaw;
-			origin->rotation.getRPY(roll, pitch, yaw);
+			// NOTE: URDF's rpy is a FIXED-axis (extrinsic) X-Y-Z convention, but
+			// OpenSim's orientation Vec3 expects BODY-fixed (intrinsic) X-Y-Z Euler
+			// angles - these are not the same rotation in general. Reusing
+			// origin->rotation.getRPY() values directly silently produces the wrong
+			// rotation whenever more than one rpy component is nonzero at once.
+			// Build the rotation from URDF's quaternion instead and let SimTK do the
+			// conversion to the convention OpenSim actually expects.
+			SimTK::Rotation R_link(SimTK::Quaternion(
+				origin->rotation.w, origin->rotation.x, origin->rotation.y, origin->rotation.z));
 			link_pos = Vec3(origin->position.x, origin->position.y, origin->position.z);
-			link_ori = Vec3(roll, pitch, yaw);
+			link_ori = R_link.convertRotationToBodyFixedXYZ();
 		}
 
 		// define joint based on link
@@ -197,12 +205,8 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 			osim_model.addJoint(joint);
 
 
-		std::string mesh_format = "obj";
+		std::string mesh_format = "stl";
 		std::string destination = "visual_" + body_name +"."+ mesh_format;
-
-		// display geometry
-		auto mesh_visual = new OpenSim::Mesh(destination);
-		body->attachGeometry(mesh_visual->clone());
 
 		// actuators
 		// only for pin joints
@@ -240,12 +244,48 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 			continue; // or skip geometry creation
 		}
 
-		resource_retriever::MemoryResource resource = retriever.get(uri);
-		//if it doesnt exist it will write an empty file i think idk, if this happens, that we have a visual defintion without a visual, then it is messed up. if the model uses the basic shapes, then this will break
-
-		std::string ext = boost::filesystem::path(uri).extension().string();
-		if (!ext.empty() && ext[0] == '.')
-    			ext.erase(0, 1);
+		// OpenSim doesn't distinguish visual-quality vs collision-quality meshes, but
+		// this mesh set is inconsistent about which extension actually exists per
+		// link: some URDFs reference a .stl that was never generated for a link only
+		// shipped as .dae (e.g. link_0), while at least one mesh is referenced as
+		// .dae but only exists as .stl (link_7-MF-Touch-pneumatisch). Try the URI as
+		// given first, then fall back to the other extension before giving up.
+		resource_retriever::MemoryResource resource;
+		std::string ext;
+		bool fetched = false;
+		{
+			boost::filesystem::path uri_path(uri);
+			std::string alt_ext = (uri_path.extension() == ".dae") ? ".stl" : ".dae";
+			std::vector<std::string> candidates = {
+				uri,
+				(uri_path.parent_path() / (uri_path.stem().string() + alt_ext)).string()
+			};
+			for (const auto& candidate : candidates)
+			{
+				try
+				{
+					resource = retriever.get(candidate);
+					ext = boost::filesystem::path(candidate).extension().string();
+					if (!ext.empty() && ext[0] == '.')
+						ext.erase(0, 1);
+					fetched = true;
+					if (candidate != uri)
+						ROS_WARN("Link %s: '%s' not found, using '%s' instead",
+								link_name.c_str(), uri.c_str(), candidate.c_str());
+					break;
+				}
+				catch (const resource_retriever::Exception& e)
+				{
+					continue;
+				}
+			}
+		}
+		if (!fetched)
+		{
+			ROS_ERROR("Link %s: could not find mesh at '%s' or its .dae/.stl counterpart",
+					link_name.c_str(), uri.c_str());
+			continue;
+		}
 
 		const aiScene* scene = importer.ReadFileFromMemory(
 				resource.data.get(),
@@ -266,11 +306,22 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 
 		//std::ofstream out(fdfd, std::ios::binary);
 		//out.write(reinterpret_cast<const char*>(resource.data.get()),resource.size);
-		if (exporter.Export(scene, mesh_format, fdfd.string() ) != AI_SUCCESS)
+		// Export as BINARY stl ("stlb"), not ASCII ("stl"), even though the filename
+		// still ends in .stl (Simbody autodetects binary vs ASCII from content). The
+		// source .dae meshes likely have multiple sub-meshes/materials per link;
+		// Assimp's ASCII STL exporter writes one "solid ... endsolid" block per
+		// sub-mesh, and Simbody's PolygonalMesh::loadStlFile() chokes on a second
+		// "solid" header mid-file. Binary STL has no per-mesh solid blocks at all -
+		// just a flat triangle list - so this class of failure can't happen.
+		if (exporter.Export(scene, "stlb", fdfd.string() ) != AI_SUCCESS)
 		{
 			std::cerr << "export failed" << exporter.GetErrorString() << std::endl;
 			continue;
 		}
+
+		// display geometry (only attach once the mesh file has actually been written)
+		auto mesh_visual = new OpenSim::Mesh(destination);
+		body->attachGeometry(mesh_visual->clone());
 
 	}
 

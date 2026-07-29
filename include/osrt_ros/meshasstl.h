@@ -13,6 +13,35 @@
 #include <vtkPolyDataNormals.h>
 #include <boost/filesystem.hpp>
 
+// --- Diagnostic switches for isolating the iiwa14 mesh-orientation bug (2026-07-29) ---
+// Flip these, rebuild, and compare in rviz. Meant to be temporary - remove once the
+// root cause is confirmed and folded into a real fix.
+//
+// MESHCONV_SKIP_OBJ_INTERMEDIATE: when 1, osim_to_simple_urdf.cpp bypasses the .obj
+// baked into the .osim by urdf_to_osim.cpp and converts the ORIGINAL iiwa_description
+// .dae straight to .stl instead. Isolates whether the double Assimp round-trip
+// (dae->obj->stl) is corrupting geometry, vs. something inherent to leaving .dae at all.
+#ifndef MESHCONV_SKIP_OBJ_INTERMEDIATE
+#define MESHCONV_SKIP_OBJ_INTERMEDIATE 0
+#endif
+
+// MESHCONV_APPLY_PRETRANSFORM_VERTICES: when 0, drops aiProcess_PreTransformVertices
+// from the generic Assimp import pass below. That flag bakes any scene-graph node
+// transform into vertex data on import; it's worth ruling in/out on its own.
+#ifndef MESHCONV_APPLY_PRETRANSFORM_VERTICES
+#define MESHCONV_APPLY_PRETRANSFORM_VERTICES 1
+#endif
+
+// MESHCONV_APPLY_DAE_YUP_CORRECTION: when 1, manually rotates -90deg about X for
+// .dae sources before export. rviz's own COLLADA loader reads a mesh's <up_axis> tag
+// and applies exactly this correction for Y_UP files (all of iiwa_description's link
+// meshes are Y_UP) - a correction that never happens once a mesh leaves .dae format,
+// which this pipeline always does. This replicates that correction manually so it
+// survives the conversion to .obj/.stl.
+#ifndef MESHCONV_APPLY_DAE_YUP_CORRECTION
+#define MESHCONV_APPLY_DAE_YUP_CORRECTION 0
+#endif
+
 int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmesh_filename)
 {
 	std::cout << "in: " << inmesh_filename << "\nout:" << outmesh_filename <<std::endl;
@@ -67,20 +96,35 @@ int writeMeshAsStl(const std::string& inmesh_filename, const std::string& outmes
 	std::cout << "Assimp: "<< std::endl;
 	Assimp::Importer importer;
 	Assimp::Exporter exporter;
-	const aiScene* scene = importer.ReadFile(intermediate_mesh_name, aiProcess_Triangulate |
+	unsigned int import_flags = aiProcess_Triangulate |
 			//aiProcess_GenSmoothNormals|
 			aiProcess_JoinIdenticalVertices |
-			aiProcess_PreTransformVertices |
 			aiProcess_GenNormals
-			//| aiProcess_PreTransformVertices
 			//|
 			//aiProcess_FlipWindingOrder
-			);
+			;
+#if MESHCONV_APPLY_PRETRANSFORM_VERTICES
+	import_flags |= aiProcess_PreTransformVertices;
+#endif
+	const aiScene* scene = importer.ReadFile(intermediate_mesh_name, import_flags);
 	if (!scene)
 	{
 		std::cerr <<"import error: " << importer.GetErrorString()<<std::endl;
 		return 1;
 	}
+
+#if MESHCONV_APPLY_DAE_YUP_CORRECTION
+	// rviz's own COLLADA loader reads <up_axis> and applies this same correction
+	// (Y_UP -> Z_UP) for .dae display; that never happens once we've left .dae format,
+	// so replicate it manually here before export.
+	if (boost::filesystem::path(intermediate_mesh_name).extension().string() == ".dae")
+	{
+		aiMatrix4x4 yup_to_zup;
+		aiMatrix4x4::RotationX(-AI_MATH_HALF_PI_F, yup_to_zup);
+		scene->mRootNode->mTransformation = yup_to_zup * scene->mRootNode->mTransformation;
+		std::cout << "applied DAE Y_UP->Z_UP correction to " << intermediate_mesh_name << std::endl;
+	}
+#endif
 	// for manually inverting normals because idk, it's not rendering right
 	if (false)
 		for (unsigned int m = 0; m < scene->mNumMeshes; ++m)

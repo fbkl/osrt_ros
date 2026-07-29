@@ -8,6 +8,32 @@
 #include <osrt_ros/meshasstl.h>
 #include <ros/ros.h>
 #include <filesystem>
+#include <cstdlib>
+
+// Diagnostic helper for MESHCONV_SKIP_OBJ_INTERMEDIATE (2026-07-29): given a body name
+// like "link_3", resolve an ORIGINAL source mesh to use instead of the .obj that
+// urdf_to_osim.cpp baked into the .osim. Deliberately knows nothing about any specific
+// robot/package - it just looks for "<body_name>.dae" under the directory named by the
+// MESHCONV_SOURCE_OVERRIDE_DIR environment variable, e.g. for iiwa14:
+//   export MESHCONV_SOURCE_OVERRIDE_DIR=$(rospack find iiwa_description)/meshes/iiwa14/visual
+// Not set (or file missing) => falls back to the normal .obj path, no dependency needed.
+#if MESHCONV_SKIP_OBJ_INTERMEDIATE
+static std::string resolveOriginalDaeForBody(const std::string& body_name)
+{
+	const char* override_dir = std::getenv("MESHCONV_SOURCE_OVERRIDE_DIR");
+	if (!override_dir || std::string(override_dir).empty())
+	{
+		ROS_WARN_STREAM("MESHCONV_SKIP_OBJ_INTERMEDIATE: MESHCONV_SOURCE_OVERRIDE_DIR not set - falling back to the .obj from the .osim");
+		return "";
+	}
+	std::string candidate = std::string(override_dir) + "/" + body_name + ".dae";
+	if (boost::filesystem::exists(candidate))
+		return candidate;
+	ROS_WARN_STREAM("MESHCONV_SKIP_OBJ_INTERMEDIATE: no original .dae found for body '"
+			<< body_name << "' at " << candidate << " - falling back to the .obj from the .osim");
+	return "";
+}
+#endif
 
 
 SimTK::String OsimToUrdf::writeVec3(SimTK::Vec3 myvec)
@@ -98,6 +124,17 @@ tinyxml2::XMLDocument* OsimToUrdf::create_model(std::string osim_path, std::stri
 
 						//std::string outmesh = "/tmp/" + removeExtension(meshName) + ".dae";
 						std::string outmesh = "/tmp/" + meshName.stem().string() + ".stl";
+
+#if MESHCONV_SKIP_OBJ_INTERMEDIATE
+						{
+							std::string original_dae = resolveOriginalDaeForBody(link.name);
+							if (!original_dae.empty())
+							{
+								ROS_WARN_STREAM("MESHCONV_SKIP_OBJ_INTERMEDIATE: using original " << original_dae << " instead of " << inmesh);
+								inmesh = original_dae;
+							}
+						}
+#endif
 
 						if (writeMeshAsStl(inmesh, outmesh) !=0 ) std::cerr << "failed to convert mesh" << inmesh << std::endl;
 
