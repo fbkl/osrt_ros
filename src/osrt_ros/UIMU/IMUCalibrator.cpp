@@ -45,7 +45,7 @@
 
 using namespace OpenSimRT;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace std;
 
 const std::string red("\033[0;31m");
@@ -133,7 +133,7 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationSeq(const double& xDegrees,
 
 
 	//my trusty calculator (https://www.andre-gaschler.com/rotationconverter/) tells me that this is in fact a zyx euler rotation.
-	auto R_GoGiX = Rotation(SimTK::BodyOrSpaceType::SpaceRotationSequence, xRad,
+	auto R_GoGiX = SimTK::Rotation(SimTK::BodyOrSpaceType::SpaceRotationSequence, xRad,
 			SimTK::XAxis, yRad, SimTK::YAxis, zRad, SimTK::ZAxis);
 	ROS_DEBUG_STREAM("ground orientation matrix:\n" << R_GoGiX);
 	return R_GoGiX;
@@ -141,7 +141,7 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationSeq(const double& xDegrees,
 
 SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfname)
 {
-	Quaternion q;
+	SimTK::Quaternion q;
 	if (true)
 	{
 	geometry_msgs::TransformStamped standard_imu_orientation_tf;
@@ -226,8 +226,8 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		const auto q0 = staticPoseQuaternions[baseBodyIndex];
 		ROS_INFO_STREAM("Basebody q0: "<< q0);
 
-		auto        q0_rotation_matrix =  Rotation(q0);
-		auto inverseq0_rotation_matrix = ~Rotation(q0);
+		auto        q0_rotation_matrix =  SimTK::Rotation(q0);
+		auto inverseq0_rotation_matrix = ~SimTK::Rotation(q0);
 
 		ROS_INFO_STREAM(magenta << "R_GoGi1 (should be roughly the same as inverse q in the zero heading case): "<< R_GoGi1<<reset);
 		ROS_INFO_STREAM(magenta << "R_GiGo1 (actually its ~R_GoGi1 but checking maths because were dumb): "<< ~R_GoGi1<<reset);
@@ -235,29 +235,29 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		ROS_INFO_STREAM(cyan << "       q0_rotation_matrix: "<<        q0_rotation_matrix<<reset);
 		ROS_INFO_STREAM(cyan << "inverseq0_rotation_matrix: "<< inverseq0_rotation_matrix<<reset);
 		// all the permutations!
-		const auto base_R = R_GoGi1 * Rotation(q0);
-		//const auto base_R1 = ~R_GoGi1 * Rotation(q0);
-		//const auto base_R2 = R_GoGi1 * ~Rotation(q0);
-		//const auto base_R3 = ~R_GoGi1 * ~Rotation(q0);
-		//const auto base_R4 = Rotation(q0) * R_GoGi1;
-		//const auto base_R5 = ~Rotation(q0) * R_GoGi1;
-		//const auto base_R6 = Rotation(q0) * ~R_GoGi1;
-		//const auto base_R7 = ~Rotation(q0) * ~R_GoGi1;
+		const auto base_R = R_GoGi1 * SimTK::Rotation(q0);
+		//const auto base_R1 = ~R_GoGi1 * SimTK::Rotation(q0);
+		//const auto base_R2 = R_GoGi1 * ~SimTK::Rotation(q0);
+		//const auto base_R3 = ~R_GoGi1 * ~SimTK::Rotation(q0);
+		//const auto base_R4 = SimTK::Rotation(q0) * R_GoGi1;
+		//const auto base_R5 = ~SimTK::Rotation(q0) * R_GoGi1;
+		//const auto base_R6 = SimTK::Rotation(q0) * ~R_GoGi1;
+		//const auto base_R7 = ~SimTK::Rotation(q0) * ~R_GoGi1;
 
-		//const SimTK::Rotation base_R = ~Rotation(q0);
+		//const SimTK::Rotation base_R = ~SimTK::Rotation(q0);
 		//
 		//
 		ROS_INFO_STREAM("Okay, what do i think is happening here: R_GoGi1 is the inverse of imu_ref_ori, so if we multiply an imu_ref_ori orientated imu in the front by the rotation of an IMU, this should give us an identity matrix, if they are orientated with a zero heading.\nIf it is at some sort of angle, then this will reflect how much the base IMU should alter the thingymagig. I am going to publish this as a tf with the name base_rotation.");
-		ROS_INFO_STREAM("base_R = R_GoGi1 * Rotation(q0)" << base_R);
+		ROS_INFO_STREAM("base_R = R_GoGi1 * SimTK::Rotation(q0)" << base_R);
 
-		Vec3 trans_base_rotated{1.2,1,1};
-		//Vec3 trans_base_rotated1{1.2,1+.1,1};
-		//Vec3 trans_base_rotated2{1.2,1+.2,1};
-		//Vec3 trans_base_rotated3{1.2,1+.3,1};
-		//Vec3 trans_base_rotated4{1.2,1+.4,1};
-		//Vec3 trans_base_rotated5{1.2,1+.5,1};
-		//Vec3 trans_base_rotated6{1.2,1+.6,1};
-		//Vec3 trans_base_rotated7{1.2,1+.7,1};
+		SimTK::Vec3 trans_base_rotated{1.2,1,1};
+		//SimTK::Vec3 trans_base_rotated1{1.2,1+.1,1};
+		//SimTK::Vec3 trans_base_rotated2{1.2,1+.2,1};
+		//SimTK::Vec3 trans_base_rotated3{1.2,1+.3,1};
+		//SimTK::Vec3 trans_base_rotated4{1.2,1+.4,1};
+		//SimTK::Vec3 trans_base_rotated5{1.2,1+.5,1};
+		//SimTK::Vec3 trans_base_rotated6{1.2,1+.6,1};
+		//SimTK::Vec3 trans_base_rotated7{1.2,1+.7,1};
 
 		SimTK::Transform TRotatedBase(base_R, trans_base_rotated);
 		//SimTK::Transform TRotatedBase1(base_R1, trans_base_rotated1);
@@ -279,7 +279,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		// get initial direction from the imu measurement (the axis looking
 		// front)
-		UnitVec3 baseSegmentXheading = base_R(baseHeadingDirection.getAxis());
+		SimTK::UnitVec3 baseSegmentXheading = base_R(baseHeadingDirection.getAxis());
 		if (baseHeadingDirection.getDirection() < 0)
 		{
 			//this thing here implements the minus sign of the baseHeadingDirection variable which is a parameter we set and it is only used here, it seems.
@@ -306,7 +306,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		}
 
 		// express unit x axis of local body frame to ground frame
-		Vec3 baseFrameX = UnitVec3(1, 0, 0);
+		SimTK::Vec3 baseFrameX = SimTK::UnitVec3(1, 0, 0);
 		
 		// what if i don't care about what is the real coordinate frame of the base here?
 		// no, i think i care about it, but then this is weird because the model is rotated, so i will want to rotate the cameras as well? i dont understand
@@ -323,7 +323,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 
 		//publishTransform("baseXForm",baseXForm, sameHeader);	
-		//Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
+		//SimTK::Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
 		
 		
 
@@ -351,7 +351,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		ROS_YE("angularDifference: " << angularDifference << " rad ( " << angularDifference/3.14159205*180.0 << " degrees)");
 		// set heading rotation (rotation about Y axis)
-		R_heading = Rotation(angularDifference , SimTK::YAxis);
+		R_heading = SimTK::Rotation(angularDifference , SimTK::YAxis);
 
 	} else {
 		ROS_WARN("No heading correction is applied. Heading rotation is set to "
@@ -376,7 +376,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 geometry_msgs::Quaternion getAsRosQuaternion(const SimTK::Rotation& R)
 {
-	Quaternion rotation = R.convertRotationToQuaternion();
+	SimTK::Quaternion rotation = R.convertRotationToQuaternion();
 	geometry_msgs::Quaternion _rotation;
 			_rotation.w = rotation[0];
 			_rotation.x = rotation[1];
@@ -386,7 +386,7 @@ geometry_msgs::Quaternion getAsRosQuaternion(const SimTK::Rotation& R)
 
 }
 
-geometry_msgs::Vector3 getAsRosVec3(const Vec3& translation)
+geometry_msgs::Vector3 getAsRosVec3(const SimTK::Vec3& translation)
 {
 	geometry_msgs::Vector3 _translation;
 			_translation.x = translation[0];
@@ -397,9 +397,9 @@ geometry_msgs::Vector3 getAsRosVec3(const Vec3& translation)
 
 }
 
-geometry_msgs::Transform getAsRosTF(const Transform& X_GB)
+geometry_msgs::Transform getAsRosTF(const SimTK::Transform& X_GB)
 {
-	Vec3 translation = X_GB.p();
+	SimTK::Vec3 translation = X_GB.p();
 	SimTK::Rotation R = X_GB.R();
 	geometry_msgs::Transform _tf;
 	_tf.translation = getAsRosVec3(translation);
@@ -407,7 +407,7 @@ geometry_msgs::Transform getAsRosTF(const Transform& X_GB)
 	return _tf;
 }
 
-void IMUCalibrator::publishTransform(const std::string name, const Transform X_GB, const std_msgs::Header& header)
+void IMUCalibrator::publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header)
 {
 	geometry_msgs::Transform _tf = getAsRosTF(X_GB);
 
@@ -428,28 +428,28 @@ void IMUCalibrator::calibrateIMUTasks(
 
 		const auto& q0 = staticPoseQuaternions[i]; //TODO:: maybe make this come from TF directly?
 
-		Vec3  myVec = imuBodiesInGround[bodyName].p();
-		Vec3 myVec2 = myVec;
-		Vec3 myVec3 = myVec;
+		SimTK::Vec3  myVec = imuBodiesInGround[bodyName].p();
+		SimTK::Vec3 myVec2 = myVec;
+		SimTK::Vec3 myVec3 = myVec;
 		myVec2[0]+=0.2;
 		myVec3[2]+=0.2;
-		//const auto Corrected_Q0 = ~Rotation(q0);
+		//const auto Corrected_Q0 = ~SimTK::Rotation(q0);
 		//ROS_DEBUG_STREAM("Corrected_Q0 orientation matrix:" << bodyName << "\n" << Corrected_Q0);
 
-		const auto R0 = R_GoGi1 * Rotation(q0);
-		Transform TT(R0, myVec) ;
+		const auto R0 = R_GoGi1 * SimTK::Rotation(q0);
+		SimTK::Transform TT(R0, myVec) ;
 
 		publishTransform(bodyName+"R0", TT, sameHeader);
 
 		ROS_DEBUG_STREAM("R0 orientation matrix:" << bodyName << "\n" << R0);
 
-		const auto R0_ = R_heading * R_GoGi1 * Rotation(q0);
-		Transform TT_(R0_, myVec3) ;
+		const auto R0_ = R_heading * R_GoGi1 * SimTK::Rotation(q0);
+		SimTK::Transform TT_(R0_, myVec3) ;
 
 		publishTransform(bodyName+"R0_", TT_, sameHeader);
 
 		ROS_DEBUG_STREAM("R0_ orientation matrix:" << bodyName << "\n" << R0_);
-		Rotation RR ;
+		SimTK::Rotation RR ;
 
 		//if (i==baseBodyIndex)
 		//RR = R_heading; //maybe this should be calculated per imu?
@@ -467,7 +467,7 @@ void IMUCalibrator::calibrateIMUTasks(
 		//const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName]* RR * R0; // ~R_GB * R_GO
 		//const auto R_BS = ~imuBodiesInGround[bodyName] * R0; // ~R_GB * R_GO
-		Transform TT_BS(R_BS, myVec2) ;
+		SimTK::Transform TT_BS(R_BS, myVec2) ;
 		publishTransform(bodyName+"BS", TT_BS, sameHeader);
 
 

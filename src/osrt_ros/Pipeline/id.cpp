@@ -29,7 +29,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 Pipeline::Id::Id(): 
@@ -236,9 +236,9 @@ std::vector<OpenSimRT::ExternalWrench::Input> Pipeline::Id::get_wrench(const geo
 	// TODO: get wrench message!!!!!!!!!!
 	std::vector<ExternalWrench::Input> wrenches;
 	OpenSimRT::ExternalWrench::Input nullWrench;
-	nullWrench.force = Vec3{0,0,0};
-	nullWrench.torque = Vec3{0,0,0};
-	nullWrench.point = Vec3{0,0,0};
+	nullWrench.force = SimTK::Vec3{0,0,0};
+	nullWrench.torque = SimTK::Vec3{0,0,0};
+	nullWrench.point = SimTK::Vec3{0,0,0};
 	
 	static OpenSimRT::ExternalWrench::Input grfRightWrench=nullWrench;
 	OpenSimRT::ExternalWrench::Input* gRw = new OpenSimRT::ExternalWrench::Input; 

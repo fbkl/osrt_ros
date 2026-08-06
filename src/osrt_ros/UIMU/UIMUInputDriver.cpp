@@ -29,7 +29,7 @@
 #include "osrt_ros/UIMU/CometaServer.h"
 
 using namespace OpenSimRT;
-using namespace SimTK;
+;
 
 
 
@@ -195,7 +195,7 @@ void UIMUInputDriver::shouldTerminate(bool flag) {
 }
 
 UIMUInputDriver::IMUDataList
-UIMUInputDriver::fromVector(const Vector& v) const {
+UIMUInputDriver::fromVector(const SimTK::Vector& v) const {
 	IMUDataList list;
 	UIMUData data;
 	int n = UIMUData::size();
@@ -228,7 +228,7 @@ std::pair<double, std::vector<UIMUData>> UIMUInputDriver::getFrame() {
 	return std::make_pair(temp.first, fromVector(temp.second));
 }
 
-std::pair<double, Vector> UIMUInputDriver::getFrameAsVector() const {
+std::pair<double, SimTK::Vector> UIMUInputDriver::getFrameAsVector() const {
 	std::unique_lock<std::mutex> lock(mu);
 	cond.wait(lock,
 			[&]() { return (newRow == true) || terminationFlag.load(); });

@@ -63,7 +63,7 @@
 using namespace std;
 using namespace OpenSim;
 using namespace OpenSimRT;
-using namespace SimTK;
+;
 
 const std::string red("\033[0;31m");
 const std::string green("\033[1;32m");

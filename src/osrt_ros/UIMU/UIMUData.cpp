@@ -20,70 +20,70 @@
 #include "osrt_ros/UIMU/UIMUData.h"
 
 using namespace OpenSimRT;
-using namespace SimTK;
+;
 
 SimTK::Quaternion UIMUData::getQuaternion() const {
     return this->quaternion.q;
 }
 
-Vector UIMUData::asVector() const {
-    Vector v(this->size());
+SimTK::Vector UIMUData::asVector() const {
+    SimTK::Vector v(this->size());
     int i = 0;
-    v(i, 4) = Vector(this->quaternion.q);
+    v(i, 4) = SimTK::Vector(this->quaternion.q);
     i += 4;
-    v(i, 3) = Vector(this->sensors.acceleration);
+    v(i, 3) = SimTK::Vector(this->sensors.acceleration);
     i += 3;
-    v(i, 3) = Vector(this->sensors.gyroscope);
+    v(i, 3) = SimTK::Vector(this->sensors.gyroscope);
     i += 3;
-    v(i, 3) = Vector(this->sensors.magnetometer);
+    v(i, 3) = SimTK::Vector(this->sensors.magnetometer);
     i += 3;
-    v(i, 1) = Vector(this->sensors.barometer);
+    v(i, 1) = SimTK::Vector(this->sensors.barometer);
     i += 1;
-    v(i, 3) = Vector(this->linear.acceleration);
+    v(i, 3) = SimTK::Vector(this->linear.acceleration);
     i += 3;
-    v(i, 1) = Vector(this->altitude.measurement);
+    v(i, 1) = SimTK::Vector(this->altitude.measurement);
     return v;
 }
 
-void UIMUData::fromVector(const Vector& v) {
+void UIMUData::fromVector(const SimTK::Vector& v) {
     int i = 0;
     this->quaternion.q = SimTK::Quaternion(v[0], v[1], v[2], v[3]);
-    this->sensors.acceleration = Vec3(&v[4]);
-    this->sensors.gyroscope = Vec3(&v[7]);
-    this->sensors.magnetometer = Vec3(&v[10]);
-    this->sensors.barometer = Vec1(&v[13]);
-    this->linear.acceleration = Vec3(&v[14]);
-    this->altitude.measurement = Vec1(&v[17]);
+    this->sensors.acceleration = SimTK::Vec3(&v[4]);
+    this->sensors.gyroscope = SimTK::Vec3(&v[7]);
+    this->sensors.magnetometer = SimTK::Vec3(&v[10]);
+    this->sensors.barometer = SimTK::Vec1(&v[13]);
+    this->linear.acceleration = SimTK::Vec3(&v[14]);
+    this->altitude.measurement = SimTK::Vec1(&v[17]);
 }
 
 UIMUData::UIMUPack UIMUData::getAsPack() const {
     std::vector<std::pair<double, SimTK::Vector>> res{
             std::make_pair(this->quaternion.timeStamp,
-                           Vector(this->quaternion.q)),
+                           SimTK::Vector(this->quaternion.q)),
             std::make_pair(this->sensors.timeStamp,
-                           Vector(this->sensors.acceleration)),
+                           SimTK::Vector(this->sensors.acceleration)),
             std::make_pair(this->sensors.timeStamp,
-                           Vector(this->sensors.gyroscope)),
+                           SimTK::Vector(this->sensors.gyroscope)),
             std::make_pair(this->sensors.timeStamp,
-                           Vector(this->sensors.magnetometer)),
+                           SimTK::Vector(this->sensors.magnetometer)),
             std::make_pair(this->sensors.timeStamp,
-                           Vector(this->sensors.barometer)),
+                           SimTK::Vector(this->sensors.barometer)),
             std::make_pair(this->linear.timeStamp,
-                           Vector(this->linear.acceleration)),
+                           SimTK::Vector(this->linear.acceleration)),
             std::make_pair(this->altitude.timeStamp,
-                           Vector(this->altitude.measurement))};
+                           SimTK::Vector(this->altitude.measurement))};
     return res;
 }
 
 void UIMUData::setFromPack(const UIMUPack& pack) {
     const auto& v = pack[0].second;
     this->quaternion.q = SimTK::Quaternion(v[0], v[1], v[2], v[3]);
-    this->sensors.acceleration = Vec3(&pack[1].second[0]);
-    this->sensors.gyroscope = Vec3(&pack[2].second[0]);
-    this->sensors.magnetometer = Vec3(&pack[3].second[0]);
-    this->sensors.barometer = Vec1(&pack[4].second[0]);
-    this->linear.acceleration = Vec3(&pack[5].second[0]);
-    this->altitude.measurement = Vec1(&pack[6].second[0]);
+    this->sensors.acceleration = SimTK::Vec3(&pack[1].second[0]);
+    this->sensors.gyroscope = SimTK::Vec3(&pack[2].second[0]);
+    this->sensors.magnetometer = SimTK::Vec3(&pack[3].second[0]);
+    this->sensors.barometer = SimTK::Vec1(&pack[4].second[0]);
+    this->linear.acceleration = SimTK::Vec3(&pack[5].second[0]);
+    this->altitude.measurement = SimTK::Vec1(&pack[6].second[0]);
 
     this->quaternion.timeStamp = pack[0].first;
     this->sensors.timeStamp = pack[1].first;

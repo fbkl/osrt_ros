@@ -25,7 +25,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 Pipeline::Acc::Acc()
@@ -44,7 +44,7 @@ void Pipeline::Acc::get_params()
 	//TODO: make it real params
 	INIReader ini(INI_FILE);
 	auto section = "TEST_ACCELERATION_GRFM_PREDICTION_FROM_FILE";
-	grfOrigin = ini.getSimtkVec(section, "GRF_ORIGIN", Vec3(0));
+	grfOrigin = ini.getSimtkVec(section, "GRF_ORIGIN", SimTK::Vec3(0));
 
 	// acceleration-based detector parameters
 	auto heelAccThreshold = ini.getReal(section, "HEEL_ACC_THRESHOLD", 0);
@@ -53,13 +53,13 @@ void Pipeline::Acc::get_params()
 	auto rFootBodyName = ini.getString(section, "RIGHT_FOOT_BODY_NAME", "");
 	auto lFootBodyName = ini.getString(section, "LEFT_FOOT_BODY_NAME", "");
 	auto rHeelLocation =
-		ini.getSimtkVec(section, "RIGHT_HEEL_LOCATION_IN_FOOT", Vec3(0));
+		ini.getSimtkVec(section, "RIGHT_HEEL_LOCATION_IN_FOOT", SimTK::Vec3(0));
 	auto lHeelLocation =
-		ini.getSimtkVec(section, "LEFT_HEEL_LOCATION_IN_FOOT", Vec3(0));
+		ini.getSimtkVec(section, "LEFT_HEEL_LOCATION_IN_FOOT", SimTK::Vec3(0));
 	auto rToeLocation =
-		ini.getSimtkVec(section, "RIGHT_TOE_LOCATION_IN_FOOT", Vec3(0));
+		ini.getSimtkVec(section, "RIGHT_TOE_LOCATION_IN_FOOT", SimTK::Vec3(0));
 	auto lToeLocation =
-		ini.getSimtkVec(section, "LEFT_TOE_LOCATION_IN_FOOT", Vec3(0));
+		ini.getSimtkVec(section, "LEFT_TOE_LOCATION_IN_FOOT", SimTK::Vec3(0));
 	auto accLPFilterFreq = ini.getInteger(section, "ACC_LP_FILTER_FREQ", 0);
 	auto velLPFilterFreq = ini.getInteger(section, "VEL_LP_FILTER_FREQ", 0);
 	auto posLPFilterFreq = ini.getInteger(section, "POS_LP_FILTER_FREQ", 0);
@@ -71,7 +71,7 @@ void Pipeline::Acc::get_params()
 
 	// setup model
 	Object::RegisterType(Thelen2003Muscle());
-	Model model(modelFile);
+	OpenSim::Model model(modelFile);
 	model.initSystem();
 
 	// setup external forces parameters
@@ -134,9 +134,9 @@ void Pipeline::Acc::get_params()
 	// visualizer
 	visualizer = new BasicModelVisualizer(model);
 	visualizer->setVisualizer();
-	rightGRFDecorator = new ForceDecorator(Green, 0.001, 3);
+	rightGRFDecorator = new ForceDecorator(SimTK::Green, 0.001, 3);
 	visualizer->addDecorationGenerator(rightGRFDecorator);
-	leftGRFDecorator = new ForceDecorator(Green, 0.001, 3);
+	leftGRFDecorator = new ForceDecorator(SimTK::Green, 0.001, 3);
 	visualizer->addDecorationGenerator(leftGRFDecorator);
 
 	// mean delay

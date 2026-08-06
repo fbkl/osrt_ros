@@ -59,7 +59,7 @@
 using namespace std;
 using namespace OpenSim;
 using namespace OpenSimRT;
-using namespace SimTK;
+;
 
 class UIMUnode: Ros::CommonNode
 {

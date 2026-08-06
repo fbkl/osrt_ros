@@ -12,7 +12,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 const std::string red("\033[0;31m");
@@ -318,9 +318,9 @@ std::vector<OpenSimRT::ExternalWrench::Input> Pipeline::IdAsync::get_wrench(cons
 	// TODO: get wrench message!!!!!!!!!!
 	std::vector<ExternalWrench::Input> wrenches;
 	OpenSimRT::ExternalWrench::Input nullWrench;
-	nullWrench.force = Vec3{0,0,0};
-	nullWrench.torque = Vec3{0,0,0};
-	nullWrench.point = Vec3{0,0,0};
+	nullWrench.force = SimTK::Vec3{0,0,0};
+	nullWrench.torque = SimTK::Vec3{0,0,0};
+	nullWrench.point = SimTK::Vec3{0,0,0};
 
 	//sanity check
 	//

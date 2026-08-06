@@ -149,7 +149,7 @@ OpenSimRT::ContactForceBasedPhaseDetector::Parameters pars::getparamConPhaseDete
 	OpenSimRT::ContactForceBasedPhaseDetector::Parameters detectorParameters;
 	/*   detectorParameters.threshold = threshold;
 	   detectorParameters.windowSize = windowSize;
-	   detectorParameters.plane_origin = Vec3(0.0, platform_offset, 0.0);
+	   detectorParameters.plane_origin = SimTK::Vec3(0.0, platform_offset, 0.0);
 	   detectorParameters.rHeelSphereLocation = rHeelSphereLocation;
 	   detectorParameters.lHeelSphereLocation = lHeelSphereLocation;
 	   detectorParameters.rToeSphereLocation = rToeSphereLocation;

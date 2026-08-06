@@ -156,14 +156,14 @@ void UIMUnode::start_ik()
 	else
 	{
 		auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-		Vec3 trans_p{1,1,1};
-		Vec3 trans_p2{1.1,1,1};
+		SimTK::Vec3 trans_p{1,1,1};
+		SimTK::Vec3 trans_p2{1.1,1,1};
 		SimTK::Transform TX(R_GoGi2,trans_p);
 		SimTK::Transform TX2(~R_GoGi2,trans_p2);
 		clb->sameHeader.stamp = ros::Time::now();
 		clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
 		clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
-		Vec3 trans_p0{1.1,1,-1};
+		SimTK::Vec3 trans_p0{1.1,1,-1};
 		clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori"); // why the double inversion here? well, because we want to multiply this by the orientations from the imus and get the canonical rotation that they apply. or something, idk.
 		SimTK::Transform TX0(clb->R_GoGi1,trans_p0);
 		clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
@@ -186,14 +186,14 @@ void UIMUnode::start_ik()
 		else
 		{
 			auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-			Vec3 trans_p{1,1,1};
-			Vec3 trans_p2{1.1,1,1};
+			SimTK::Vec3 trans_p{1,1,1};
+			SimTK::Vec3 trans_p2{1.1,1,1};
 			SimTK::Transform TX(R_GoGi2,trans_p);
 			SimTK::Transform TX2(~R_GoGi2,trans_p2);
 			clb->sameHeader.stamp = ros::Time::now();
 			clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
 			clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
-			Vec3 trans_p0{1.1,1,-1};
+			SimTK::Vec3 trans_p0{1.1,1,-1};
 			clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
 			SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
 			clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);

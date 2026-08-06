@@ -80,7 +80,7 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 	ROS_INFO("Creating OSIM model from URDF file...");
 	ROS_WARN("Model generation is based on modified-DH parameters; please ensure URDF file is described as such.");
 
-	using namespace SimTK;
+	;
 
 	OpenSim::Model osim_model;
 	osim_model.setName(urdf_model.getName());
@@ -106,10 +106,10 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 
 		auto link_nr        = get_link_number(link_name);
 		auto link_mass      = INFINITY;
-		auto link_cog       = Vec3(0);
-		auto link_inertia   = Inertia(0);
-		auto link_pos       = Vec3(0);
-		auto link_ori       = Vec3(0);
+		auto link_cog       = SimTK::Vec3(0);
+		auto link_inertia   = SimTK::Inertia(0);
+		auto link_pos       = SimTK::Vec3(0);
+		auto link_ori       = SimTK::Vec3(0);
 		auto joint_name     = link->parent_joint->name;
 		auto joint_type     = link->parent_joint->type;
 		auto joint_limits   = link->parent_joint->limits;
@@ -118,8 +118,8 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 		if (const auto I = link->inertial)
 		{	
 			link_mass    = I->mass;
-			link_cog     = Vec3(I->origin.position.x, I->origin.position.y, I->origin.position.z);
-			link_inertia = Inertia(I->ixx, I->iyy, I->izz, I->ixy, I->ixz, I->iyz);
+			link_cog     = SimTK::Vec3(I->origin.position.x, I->origin.position.y, I->origin.position.z);
+			link_inertia = SimTK::Inertia(I->ixx, I->iyy, I->izz, I->ixy, I->ixz, I->iyz);
 		}
 
 		// construct OSIM elements:
@@ -156,7 +156,7 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 			// conversion to the convention OpenSim actually expects.
 			SimTK::Rotation R_link(SimTK::Quaternion(
 				origin->rotation.w, origin->rotation.x, origin->rotation.y, origin->rotation.z));
-			link_pos = Vec3(origin->position.x, origin->position.y, origin->position.z);
+			link_pos = SimTK::Vec3(origin->position.x, origin->position.y, origin->position.z);
 			link_ori = R_link.convertRotationToBodyFixedXYZ();
 		}
 
@@ -173,7 +173,7 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 				(
 				 joint_name,                         // joint name
 				 *body_prev, link_pos, link_ori,     // parent body, location in parent, orientation in parent
-				 *body, Vec3(0, 0, 0), Vec3(0, 0, 0) // child body, location in child, orientation in child
+				 *body, SimTK::Vec3(0, 0, 0), SimTK::Vec3(0, 0, 0) // child body, location in child, orientation in child
 				);
 
 			// TODO:
@@ -190,14 +190,14 @@ bool urdf_to_osim(const std::string& path_to_urdf, const std::string& dir_osim_o
 				bool FIX_ORIENATION_IN_GROUND = true;
 
 				//joint_name = "ground_to_link0";
-				link_ori   = (FIX_ORIENATION_IN_GROUND) ? Vec3(-M_PI/2, 0, 0) : Vec3(0);
+				link_ori   = (FIX_ORIENATION_IN_GROUND) ? SimTK::Vec3(-M_PI/2, 0, 0) : SimTK::Vec3(0);
 				body_prev  = dynamic_cast<const OpenSim::PhysicalFrame*>(&osim_model.getGround());
 
 				joint = new OpenSim::WeldJoint
 					(
 					 joint_name,                         // joint name
 					 *body_prev, link_pos, link_ori,     // parent body, location in parent, orientation in parent
-					 *body, Vec3(0, 0, 0), Vec3(0, 0, 0) // child body, location in child, orientation in child
+					 *body, SimTK::Vec3(0, 0, 0), SimTK::Vec3(0, 0, 0) // child body, location in child, orientation in child
 					);
 			}
 

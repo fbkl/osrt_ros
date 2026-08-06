@@ -23,7 +23,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 
@@ -44,7 +44,7 @@ void Pipeline::Fc::get_params()
 	INIReader ini(INI_FILE);
 	auto section = "TEST_CONTACT_FORCE_GRFM_PREDICTION_FROM_FILE";
 
-	grfOrigin = ini.getSimtkVec(section, "GRF_ORIGIN", Vec3(0));
+	grfOrigin = ini.getSimtkVec(section, "GRF_ORIGIN", SimTK::Vec3(0));
 
 	// virtual contact surface as ground
 	auto platform_offset = ini.getReal(section, "PLATFORM_OFFSET", 0.0);
@@ -57,20 +57,20 @@ void Pipeline::Fc::get_params()
 	auto lFootBodyName = ini.getString(section, "LEFT_FOOT_BODY_NAME", "");
 
 	auto rHeelSphereLocation =
-		    ini.getSimtkVec(section, "RIGHT_HEEL_SPHERE_LOCATION", Vec3(0));
+		    ini.getSimtkVec(section, "RIGHT_HEEL_SPHERE_LOCATION", SimTK::Vec3(0));
 	auto lHeelSphereLocation =
-		    ini.getSimtkVec(section, "LEFT_HEEL_SPHERE_LOCATION", Vec3(0));
+		    ini.getSimtkVec(section, "LEFT_HEEL_SPHERE_LOCATION", SimTK::Vec3(0));
 	auto rToeSphereLocation =
-		    ini.getSimtkVec(section, "RIGHT_TOE_SPHERE_LOCATION", Vec3(0));
+		    ini.getSimtkVec(section, "RIGHT_TOE_SPHERE_LOCATION", SimTK::Vec3(0));
 	auto lToeSphereLocation =
-		    ini.getSimtkVec(section, "LEFT_TOE_SPHERE_LOCATION", Vec3(0));
+		    ini.getSimtkVec(section, "LEFT_TOE_SPHERE_LOCATION", SimTK::Vec3(0));
 	auto contactSphereRadius = ini.getReal(section, "SPHERE_RADIUS", 0);
 
 
 
 	// setup model
 	Object::RegisterType(Thelen2003Muscle());
-	Model model(modelFile);
+	OpenSim::Model model(modelFile);
 	model.initSystem();
 	
 	// setup external forces parameters
@@ -102,7 +102,7 @@ void Pipeline::Fc::get_params()
 	ContactForceBasedPhaseDetector::Parameters detectorParameters;
 	detectorParameters.threshold = threshold;
 	detectorParameters.windowSize = windowSize;
-	detectorParameters.plane_origin = Vec3(0.0, platform_offset, 0.0);
+	detectorParameters.plane_origin = SimTK::Vec3(0.0, platform_offset, 0.0);
 	detectorParameters.rHeelSphereLocation = rHeelSphereLocation;
 	detectorParameters.lHeelSphereLocation = lHeelSphereLocation;
 	detectorParameters.rToeSphereLocation = rToeSphereLocation;
@@ -123,9 +123,9 @@ void Pipeline::Fc::get_params()
 	// visualizer
 	visualizer = new BasicModelVisualizer(model);
 	visualizer->setVisualizer();
-	rightGRFDecorator = new ForceDecorator(Green, 0.001, 3);
+	rightGRFDecorator = new ForceDecorator(SimTK::Green, 0.001, 3);
 	visualizer->addDecorationGenerator(rightGRFDecorator);
-	leftGRFDecorator = new ForceDecorator(Green, 0.001, 3);
+	leftGRFDecorator = new ForceDecorator(SimTK::Green, 0.001, 3);
 	visualizer->addDecorationGenerator(leftGRFDecorator);
 
 	// mean delay

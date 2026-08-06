@@ -15,7 +15,11 @@ find_package(OpenSim REQUIRED PATHS "${OPENSIM_HOME}"
 		simbody
 	)
 #find_package(SimTK REQUIRED)
-find_package(TinyXML2 REQUIRED)
+
+#find_package(TinyXML2 REQUIRED) ## how was this working?
+find_package(PkgConfig REQUIRED) 
+pkg_check_modules(TinyXML2 REQUIRED tinyxml2)
+
 
 find_package(Eigen3 3.3 REQUIRED)
 

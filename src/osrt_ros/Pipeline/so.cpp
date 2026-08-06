@@ -20,7 +20,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 Pipeline::So::So(): Pipeline::DualSink::DualSink(false)  
@@ -42,7 +42,7 @@ Pipeline::So::So(): Pipeline::DualSink::DualSink(false)
 	ROS_DEBUG_STREAM("momentArmLibraryPath:" << momentArmLibraryPath);
 
 	Object::RegisterType(Thelen2003Muscle());
-	model = new Model(modelFile);
+	model = new OpenSim::Model(modelFile);
 	model->initSystem();
 
 	ROS_DEBUG_STREAM("registered model okay.");

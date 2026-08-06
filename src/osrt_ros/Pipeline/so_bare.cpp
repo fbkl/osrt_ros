@@ -21,7 +21,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 Pipeline::SoBare::SoBare(int proc_num_): proc_num(proc_num_)
@@ -37,7 +37,7 @@ Pipeline::SoBare::SoBare(int proc_num_): proc_num(proc_num_)
 	ROS_DEBUG_STREAM("momentArmLibraryPath:" << momentArmLibraryPath);
 
 	Object::RegisterType(Thelen2003Muscle());
-	model = new Model(modelFile);
+	model = new OpenSim::Model(modelFile);
 	model->initSystem();
 
 	ROS_DEBUG_STREAM("registered model okay.");

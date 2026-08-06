@@ -49,7 +49,7 @@
 
 using namespace std;
 using namespace OpenSim;
-using namespace SimTK;
+;
 using namespace OpenSimRT;
 
 Pipeline::IdCommon::IdCommon(): Pipeline::DualSink::DualSink(false)
@@ -64,7 +64,7 @@ Pipeline::IdCommon::IdCommon(): Pipeline::DualSink::DualSink(false)
 	// setup model
 	Object::RegisterType(Thelen2003Muscle());
 	ROS_INFO_STREAM("Using model: " << modelFile);
-	model = new Model(modelFile);
+	model = new OpenSim::Model(modelFile);
 	OpenSimUtils::removeActuators(*model);
 	model->initSystem();
 
