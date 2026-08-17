@@ -8,6 +8,8 @@ import sys
 import xml.etree.ElementTree as ET
 import yaml
 import opensim as osim
+import rospy
+
 
 def parse_markers(osim_path):
     """
@@ -68,6 +70,10 @@ def parse_markers(osim_path):
 
 if __name__ == '__main__':
     DATA = parse_markers(sys.argv[1])
+    rospy.init_node("gen_marker_yaml")
     print("# AUTO-GENERATED from .osim — do not edit by hand")
     print("# Regenerate: python scripts/generate_markers_yaml.py model.osim > config/markers.yaml")
+    if not DATA:
+         rospy.logfatal(f"You have NO MARKERS in this model. Maybe you want to generate some dummy ones with\n\n\tcreate_markerset.py  {sys.argv[1]}\n")       
     print(yaml.dump(DATA, default_flow_style=None, allow_unicode=True, sort_keys=False))
+

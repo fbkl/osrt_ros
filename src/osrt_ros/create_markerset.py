@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import opensim
 import os, sys
 
@@ -65,7 +67,7 @@ def create_model_with_markers(model_path):
     output_path = f"/tmp/{model_name}_custom.osim"
     model.printToXML(output_path)
 
-    print(f"Successfully added markers '{markers}' to '{body_names}' and saved to {output_path}")
+    print(f"Successfully added markers:\n '{markers}'\n to:\n '{body_names}'\n and saved to:\n\n {output_path}")
 
 if __name__ == "__main__":
     # 1. Load your existing model

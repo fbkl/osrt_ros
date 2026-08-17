@@ -318,12 +318,12 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 
 		//lets avoid this guy for now and do the simpler version
 
-		//const SimTK::Transform& baseXForm = //SimTK::Transform();
-		//	baseFrame->getTransformInGround(state);
+		const SimTK::Transform& baseXForm = //SimTK::Transform();
+			baseFrame->getTransformInGround(state);
 
 
 		//publishTransform("baseXForm",baseXForm, sameHeader);	
-		//SimTK::Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
+		SimTK::Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
 		
 		
 
@@ -341,7 +341,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		//
 
 		
-		auto baseFrameXInGround = baseFrameX; //SIMPLER
+		//auto baseFrameXInGround = baseFrameX; //SIMPLER
 
 		angularDifference = acos(~baseSegmentXheading * baseFrameXInGround);
 
