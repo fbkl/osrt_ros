@@ -103,15 +103,27 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 		sameHeader.frame_id = "opensim_frame";
 		sameHeader.stamp = ros::Time::now();
 
-	// get default model pose body orientation in ground
+	// Get body orientation in ground at the model's DEFAULT pose.
+	//
+	// NOTE: this map MUST be keyed by the BASE frame name, not by the raw
+	// observation-order label. InverseKinematics::createIMUTasksFromObservationOrder
+	// calls frame->findBaseFrame() and puts THAT name into imuTasks[i].body, and
+	// that base body is what the SimTK OrientationSensor is attached to. If the
+	// observation order names offset frames (an *_imu frame welded to a body),
+	// keying by `label` here means calibrateIMUTasks() looks up a key that does
+	// not exist and std::map::operator[] silently hands back an identity
+	// transform -- which is exactly the bug we are removing.
 	for (const auto& label : imuBodiesObservationOrder) {
 		const OpenSim::PhysicalFrame* frame = nullptr;
 		pub.push_back(nhandle.advertise<geometry_msgs::PoseArray>(label +"/imu_cal",1,true)); //latching topic
 		if ((frame = model.findComponent<OpenSim::PhysicalFrame>(label))) {
-			imuBodiesInGround[label] =
-				frame->getTransformInGround(state); // R_GB
-				publishTransform(label+"true" ,imuBodiesInGround[label], sameHeader);
-				ROS_INFO_STREAM(cyan << "going over body in ground to set initial location: " <<label<< imuBodiesInGround[label]);
+			const OpenSim::Frame& theBaseFrame = frame->findBaseFrame();
+			const std::string baseName = theBaseFrame.getName();
+			imuBodiesInGround[baseName] = theBaseFrame.getTransformInGround(state); // R_GoB
+			publishTransform(baseName+"true" ,imuBodiesInGround[baseName], sameHeader);
+			ROS_INFO_STREAM(cyan << "default-pose body in ground, imu label [" << label
+					<< "] -> base frame [" << baseName << "]: "
+					<< imuBodiesInGround[baseName] << reset);
 		}
 		else
 			ROS_WARN_STREAM("couldnt find physical frame for label: "<< label);
@@ -172,6 +184,22 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfn
 	SimTK::Rotation myR(q);
 	return myR;
 }
+/**
+ * DIAGNOSTIC ONLY as of now. R_heading is computed, logged and published as the
+ * `base_rotation` TF, but it is NOT applied to the IK tasks or to the runtime
+ * observations any more.
+ *
+ * Reason: applying a heading correction consistently to both sides is
+ * algebraically identical to redefining R_GoGi1 := R_heading * R_GoGi1. A heading
+ * correction is therefore just a yaw folded into the ground-to-ground rotation,
+ * and belongs in the imu_ref_ori TF, not in this node. Applying it to only one
+ * side (which is what used to happen -- calibrateIMUTasks() used it, transform()
+ * did not) bakes a spurious yaw into every solved pose.
+ *
+ * Keeping the computation around because the printed angle is a useful readout
+ * of how far the subject/robot was from the model's nominal heading at
+ * calibration time.
+ */
 SimTK::Rotation
 IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		const std::string& imuDirectionAxis) {
@@ -308,22 +336,35 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		// express unit x axis of local body frame to ground frame
 		SimTK::Vec3 baseFrameX = SimTK::UnitVec3(1, 0, 0);
 		
-		// what if i don't care about what is the real coordinate frame of the base here?
-		// no, i think i care about it, but then this is weird because the model is rotated, so i will want to rotate the cameras as well? i dont understand
-		
-		//////////////////////// THIS IS (,NOT?) WORKING!!!!!
-
-		// so here is the fucking annoying part. there is a hidden heading vector here. we can see it in the base when that line goes "going over body in ground to set initial location". for this model, that is not an identity matrix for this model, so here the heading aint really the heading, or idk how to make out this thing, but alas, here is the edge case we have to solve. so ... this heading is not very easy to wrap my head around, but we will have to calculate it. in my understanding there are 2 headings "inside of you there are 2 headings, one for the imu and another one from the model. can i add them together? i am not so sure yet. i may not want to correct the imu heading at all, actually i think this one i shouldn't correct, i want the model to have the orientation relative to the ground after all, maybe the whole heading computation should only take into account this part then. jerpotiwejrtpoeiwjtpoeiwj. expletives. 
-
-
-		//lets avoid this guy for now and do the simpler version
-
-		const SimTK::Transform& baseXForm = //SimTK::Transform();
-			baseFrame->getTransformInGround(state);
+		// Yes, the base body's frame in ground is generally NOT the identity, and
+		// yes, that means there are two headings in play: the sensor's and the
+		// model's. The answer to "can I just add them together" is no -- you
+		// compare them, and to compare them both have to be projected onto the
+		// horizontal plane first, which is what happens below.
+		//
+		// Note that this comparison is now only a readout. The model's own
+		// segment orientation is accounted for properly in calibrateIMUTasks()
+		// via the ~R_GoB factor, which is where it always belonged.
+		const SimTK::Transform& baseXForm = baseFrame->getTransformInGround(state);
 
 
 		//publishTransform("baseXForm",baseXForm, sameHeader);	
 		SimTK::Vec3 baseFrameXInGround = baseXForm.xformFrameVecToBase(baseFrameX);
+
+		// Project onto the horizontal plane, exactly as was just done above for
+		// baseSegmentXheading. BOTH operands of the acos below have to be
+		// horizontal unit vectors or the angle is meaningless. This is the same
+		// projection-vs-composition error as the original OpenSense heading bug,
+		// just on the model side of the comparison instead of the sensor side.
+		// (Y is up in OpenSim.)
+		baseFrameXInGround[1] = 0;
+		if (baseFrameXInGround.norm() < SimTK::SignificantReal)
+			ROS_ERROR_STREAM(red << "base body [" << baseImuName << "] has its local X axis vertical "
+					"in ground, so its heading is undefined." << reset);
+		else
+			baseFrameXInGround = baseFrameXInGround.normalize();
+
+		ROS_INFO_STREAM("baseFrameXInGround projected onto the horizontal plane: " << baseFrameXInGround);
 		
 		
 
@@ -341,8 +382,6 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		//
 
 		
-		//auto baseFrameXInGround = baseFrameX; //SIMPLER
-
 		angularDifference = acos(~baseSegmentXheading * baseFrameXInGround);
 
 		// compute sign
@@ -419,62 +458,72 @@ void IMUCalibrator::publishTransform(const std::string name, const SimTK::Transf
 	tb.sendTransform(_tfs);
 }
 
+/**
+ * Turn the recorded static-pose measurements into the constant sensor-on-segment
+ * mounting rotations that InverseKinematics actually wants.
+ *
+ * The relation SimTK's OrientationSensors assembly condition enforces is
+ *
+ *     R_GoB(theta) * R_BS  ~=  R_GoS_measured
+ *
+ * (see InverseKinematics.cpp, addOSensor(..., orientationInB = R_BS, ...)).
+ *
+ * During the static phase the subject is assumed to be holding the model's
+ * DEFAULT pose, so theta == theta_default and R_GoB == imuBodiesInGround[body].R().
+ * Solving for the unknown mounting rotation therefore gives
+ *
+ *     R_BS = ~R_GoB_default * R_GoGi1 * Rotation(q0)
+ *
+ * The ~R_GoB_default factor is NOT optional. It is the identity only for models
+ * whose segment frames happen to be ground-aligned in the default pose (gait2392
+ * and friends), which is why dropping it appeared to work for exactly those and
+ * silently wrecked every model with rotated segment frames (MoBL-ARMS forearm,
+ * anything generated from a URDF).
+ *
+ * No heading correction is applied here. A heading correction is just a yaw
+ * folded into R_GoGi1, so it belongs in the imu_ref_ori TF, and it must appear
+ * on the runtime observations (transform()) and here or on neither -- applying
+ * it to only one side bakes a spurious yaw into the solved pose.
+ */
 void IMUCalibrator::calibrateIMUTasks(
 		vector<InverseKinematics::IMUTask>& imuTasks) {
 	sameHeader.stamp = ros::Time::now();
+
+	if (staticPoseQuaternions.size() != imuTasks.size())
+		ROS_ERROR_STREAM(red << "staticPoseQuaternions.size() [" << staticPoseQuaternions.size()
+				<< "] != imuTasks.size() [" << imuTasks.size()
+				<< "]! calibration is about to be wrong or to read out of bounds." << reset);
+
 	for (size_t i = 0; i < staticPoseQuaternions.size(); ++i) {
-		ROS_DEBUG_STREAM(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-		const auto& bodyName = imuTasks[i].body;
+		const auto& bodyName = imuTasks[i].body; // NOTE: this is the BASE frame name
+		const auto& q0 = staticPoseQuaternions[i];
 
-		const auto& q0 = staticPoseQuaternions[i]; //TODO:: maybe make this come from TF directly?
+		if (imuBodiesInGround.find(bodyName) == imuBodiesInGround.end())
+			ROS_FATAL_STREAM(red << "no default-pose transform stored for body [" << bodyName
+					<< "]! R_GoB is being treated as the identity and this calibration WILL be wrong."
+					<< reset);
 
-		SimTK::Vec3  myVec = imuBodiesInGround[bodyName].p();
-		SimTK::Vec3 myVec2 = myVec;
-		SimTK::Vec3 myVec3 = myVec;
-		myVec2[0]+=0.2;
-		myVec3[2]+=0.2;
-		//const auto Corrected_Q0 = ~SimTK::Rotation(q0);
-		//ROS_DEBUG_STREAM("Corrected_Q0 orientation matrix:" << bodyName << "\n" << Corrected_Q0);
+		// sensor orientation in OpenSim ground, as measured during the static pose
+		const SimTK::Rotation R_GoS = R_GoGi1 * SimTK::Rotation(q0);
 
-		const auto R0 = R_GoGi1 * SimTK::Rotation(q0);
-		SimTK::Transform TT(R0, myVec) ;
+		// body orientation in OpenSim ground, at the model's default pose
+		const SimTK::Rotation R_GoB = imuBodiesInGround[bodyName].R();
 
-		publishTransform(bodyName+"R0", TT, sameHeader);
+		// the constant mounting rotation of the sensor on the segment
+		const SimTK::Rotation R_BS = ~R_GoB * R_GoS;
 
-		ROS_DEBUG_STREAM("R0 orientation matrix:" << bodyName << "\n" << R0);
+		// debug tfs, nudged apart so they are distinguishable in rviz
+		SimTK::Vec3 myVec  = imuBodiesInGround[bodyName].p();
+		SimTK::Vec3 myVec2 = myVec; myVec2[0] += 0.2;
+		publishTransform(bodyName+"R0", SimTK::Transform(R_GoS, myVec),  sameHeader);
+		publishTransform(bodyName+"BS", SimTK::Transform(R_BS,  myVec2), sameHeader);
 
-		const auto R0_ = R_heading * R_GoGi1 * SimTK::Rotation(q0);
-		SimTK::Transform TT_(R0_, myVec3) ;
+		ROS_DEBUG_STREAM("body [" << bodyName << "]"
+				<< "\n R_GoS (measured sensor in ground):\n" << R_GoS
+				<< "\n R_GoB (default pose body in ground):\n" << R_GoB
+				<< "\n R_BS  (mounting rotation):\n" << R_BS);
 
-		publishTransform(bodyName+"R0_", TT_, sameHeader);
-
-		ROS_DEBUG_STREAM("R0_ orientation matrix:" << bodyName << "\n" << R0_);
-		SimTK::Rotation RR ;
-
-		//if (i==baseBodyIndex)
-		//RR = R_heading; //maybe this should be calculated per imu?
-		//const auto R_BS = RR; // just the identity i think
-		//const auto R_BS = R0; // this worked when the heading was zero. 
-		const auto R_BS = R0_; // the heading needs to be added either here or to the transform func i think
-		//const auto R_BS = ~imuBodiesInGround[bodyName].R(); // so this does something that maybe needs to be done? question mark
-		//const auto R_BS = ~R_heading *~imuBodiesInGround[bodyName].R() * R0_; //
-		//const auto R_BS = ~R_heading *imuBodiesInGround[bodyName].R() * R0_; // so this does something that maybe needs to be done? question mark
-		//const auto R_BS = R0_ * ~imuBodiesInGround[bodyName].R(); // ~R_GB * R_GO
-		//const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
-		//const auto R_BS = imuBodiesInGround[bodyName].R() *~R0; // let's forget about heading for now
-		//const auto R_BS = imuBodiesInGround[bodyName].R() *~R0_; // this should be something that when multiplied by rotation of q0 gives me the original rotation, right? idk
-		//const auto R_BS = RR* R0;
-		//const auto R_BS = RR * ~imuBodiesInGround[bodyName].R() * R0; // ~R_GB * R_GO
-		//const auto R_BS = ~imuBodiesInGround[bodyName]* RR * R0; // ~R_GB * R_GO
-		//const auto R_BS = ~imuBodiesInGround[bodyName] * R0; // ~R_GB * R_GO
-		SimTK::Transform TT_BS(R_BS, myVec2) ;
-		publishTransform(bodyName+"BS", TT_BS, sameHeader);
-
-
-		ROS_DEBUG_STREAM("Fully corrected orientation matrix:" << bodyName << "\n" << R_BS);
-
-		imuTasks[i].orientation = std::move(R_BS);
-		ROS_DEBUG_STREAM(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+		imuTasks[i].orientation = R_BS;
 	}
 }
 
@@ -577,30 +626,24 @@ SimTK::Quaternion IMUCalibrator::getAvgQuaternionFromTF(std::string imu_resolved
 {
 	SimTK::Quaternion si_q;
 
-	auto imu_calib_from_tf = tfBuffer.lookupTransform(imu_resolved_name+"_imu",imu_resolved_name,ros::Time(0));
-
-	try	
+	try
 	{
-		geometry_msgs::Quaternion q;
+		// NOTE: the lookup itself has to live INSIDE the try, it is the thing
+		// that throws.
+		auto imu_calib_from_tf = tfBuffer.lookupTransform(imu_resolved_name+"_imu",imu_resolved_name,ros::Time(0));
 
-		ROS_DEBUG_STREAM(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-
-		q = imu_calib_from_tf.transform.rotation;
+		geometry_msgs::Quaternion q = imu_calib_from_tf.transform.rotation;
 		ROS_DEBUG_STREAM(q);
-		ROS_DEBUG_STREAM(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 		//the first term of the quaternion is w in simtk:
-		//Quaternion 	( 		 )  	[inline]
-
-		//Default constructor produces the ZeroRotation quaternion [1 0 0 0] (not NaN - even in debug mode). 
-
-		SimTK::Quaternion si_q;
+		//Default constructor produces the ZeroRotation quaternion [1 0 0 0] (not NaN - even in debug mode).
+		// NOTE: do NOT redeclare si_q here. It used to shadow the outer one, so
+		// this function silently returned the identity quaternion every time.
 		si_q[0] = q.w;
 		si_q[1] = q.x;
 		si_q[2] = q.y;
 		si_q[3] = q.z;
-
 	}
-	catch (tf::TransformException &ex)
+	catch (tf2::TransformException &ex)
 	{
 		ROS_ERROR("Error getting transform from %s:%s",imu_resolved_name.c_str(), ex.what());
 	}
@@ -614,6 +657,10 @@ void IMUCalibrator::computeAvgStaticPoseCommon()
 	string tf_prefix;
 	nhandle.param<string>("the_method",the_method,"old");
 	ROS_INFO_STREAM("Now calculating average static pose");
+	// the "topics" and "services" branches below push_back, so without this a
+	// second calibration grows the vector to 2N and calibrateIMUTasks() then
+	// indexes imuTasks[i] out of bounds.
+	staticPoseQuaternions.clear();
 	switch(hash_djb2a(the_method)) {
 		case "old"_sh:
 			std::cout << "You entered \'old\'\n";

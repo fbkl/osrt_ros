@@ -90,6 +90,10 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 		xGroundRotDeg1 = config.imu_ground_rotation_x;
 		yGroundRotDeg1 = config.imu_ground_rotation_y;
 		zGroundRotDeg1 = config.imu_ground_rotation_z;
+		ROS_WARN_STREAM("imu_ground_rotation_x/y/z are NO LONGER USED: R_GoGi1 now comes "
+				"exclusively from the imu_ref_ori TF. Change that TF instead. Only "
+				"imu_direction_axis still does anything here, and it only affects the "
+				"diagnostic heading readout.");
 		start_ik();
 	}
 	else
@@ -147,63 +151,34 @@ void UIMUnode::define_tasks()
 void UIMUnode::start_ik()
 {
 	chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
-	ROS_DEBUG_STREAM("setGroundOrientationSeq");
-	if (false)
+
+	// NOTE: this whole block used to appear twice, once unconditionally and once
+	// inside `if (useOrientationMarkers)`. It is idempotent, so the duplicate was
+	// only wasted work -- except that both copies published a TF named
+	// `imu_ref_ori_inv` and the second one published ~R_GoGi1 instead of R_GoGi1,
+	// so the frame you saw in rviz was the inverse of what its name claimed.
+	// The unconditional copy was also a latent segfault: clb is only allocated
+	// when useOrientationMarkers is true.
+	if (useOrientationMarkers)
 	{
-		clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-		ROS_INFO("Setting ground orientation from params");
-	}
-	else
-	{
-		auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-		SimTK::Vec3 trans_p{1,1,1};
-		SimTK::Vec3 trans_p2{1.1,1,1};
-		SimTK::Transform TX(R_GoGi2,trans_p);
-		SimTK::Transform TX2(~R_GoGi2,trans_p2);
+		// Ground-to-ground rotation: maps the IMU/VIO global reference frame Gi
+		// into OpenSim's ground Go. tf2's lookupTransform(target, source) returns
+		// R_target_source, so looking up (imu_ref_ori <- opensim_frame) gives
+		// R_GiGo; we want R_GoGi, hence the inversion.
+		//
+		// This is also the single place a heading correction belongs, if you ever
+		// want one again: it is just a yaw premultiplied here. Better still, put
+		// it in the imu_ref_ori TF itself and leave this node out of it.
+		clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
+
 		clb->sameHeader.stamp = ros::Time::now();
-		clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
-		clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
-		SimTK::Vec3 trans_p0{1.1,1,-1};
-		clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori"); // why the double inversion here? well, because we want to multiply this by the orientations from the imus and get the canonical rotation that they apply. or something, idk.
-		SimTK::Transform TX0(clb->R_GoGi1,trans_p0);
-		clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
-		ROS_YE("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before (R_GoGi_original from imu_ground_rotation_XYZ parameter defined magic numbers)" << R_GoGi2 );
-	}
-	ROS_DEBUG_STREAM("heading");
-	clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
+		clb->publishTransform("R_GoGi1", SimTK::Transform(clb->R_GoGi1, SimTK::Vec3{1.1,1,-1}), clb->sameHeader);
+		ROS_INFO_STREAM("R_GoGi1 (ground-to-ground, from the imu_ref_ori TF):\n" << clb->R_GoGi1);
 
-	//std::cout << boost::stacktrace::stacktrace() << std::endl;
-	clb->calibrateIMUTasks(imuTasks);
-	ROS_DEBUG_STREAM("Setting up IMUCalibrator");
-
-	if (useOrientationMarkers){	
-		ROS_DEBUG_STREAM("setGroundOrientationSeq");
-		if (false)
-		{
-			clb->R_GoGi1 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-			ROS_INFO("Setting ground orientation from params");
-		}
-		else
-		{
-			auto R_GoGi2 = clb->setGroundOrientationSeq(xGroundRotDeg1, yGroundRotDeg1, zGroundRotDeg1);
-			SimTK::Vec3 trans_p{1,1,1};
-			SimTK::Vec3 trans_p2{1.1,1,1};
-			SimTK::Transform TX(R_GoGi2,trans_p);
-			SimTK::Transform TX2(~R_GoGi2,trans_p2);
-			clb->sameHeader.stamp = ros::Time::now();
-			clb->publishTransform("imu_R_GoGi_original", TX, clb->sameHeader);
-			clb->publishTransform("imu_R_GiGo_original", TX2, clb->sameHeader);
-			SimTK::Vec3 trans_p0{1.1,1,-1};
-			clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
-			SimTK::Transform TX0(~clb->R_GoGi1,trans_p0);
-			clb->publishTransform("imu_ref_ori_inv", TX0, clb->sameHeader);
-			ROS_WARN_STREAM("UNTESTED!!! setting ground orientation from TF what i defined:"<< clb->R_GoGi1 << "\nwhat was before" << R_GoGi2 );
-		}
-		ROS_DEBUG_STREAM("heading");
+		// diagnostic only -- R_heading is not applied anywhere any more.
 		clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
-		//std::cout << boost::stacktrace::stacktrace() << std::endl;
+
 		clb->calibrateIMUTasks(imuTasks);
-		ROS_DEBUG_STREAM("Setting up IMUCalibrator");
 	}
 	// initialize ik (lower constraint weight and accuracy -> faster tracking)
 	ROS_DEBUG_STREAM("Setting up IK");

@@ -153,33 +153,26 @@ namespace OpenSimRT {
 			 */
 			void publishCalibrationData();
 			void computeAvgStaticPoseCommon();
+			/**
+			 * Map raw sensor quaternions (expressed in the IMU/VIO global frame Gi)
+			 * into OpenSim's ground frame Go:
+			 *
+			 *     R_GoS = R_GoGi1 * Rotation(q)
+			 *
+			 * This MUST use the same ground frame that calibrateIMUTasks() used when
+			 * it solved for R_BS, otherwise a constant rotation offset is baked into
+			 * every solved pose. So: no heading correction here, and none there --
+			 * if you want one, fold the yaw into R_GoGi1 (i.e. into the imu_ref_ori
+			 * TF) so both sides pick it up automatically.
+			 */
 			SimTK::Array_<SimTK::Rotation> transform(const std::vector<UIMUData>& imuData) {
-				long i=0;
-				auto R_correction = R_heading * R_GoGi1;
-				//auto R_correction = R_heading * ~R_GoGi1;
-				//auto R_correction = R_heading;
-				SimTK::Vec3 tVec;
-				tVec[0] = 0.5;
-				tVec[1] = 0.5;
-				tVec[2] = 0.5;
-				SimTK::Transform TR(R_correction, tVec);
+				SimTK::Vec3 tVec(0.5, 0.5, 0.5);
 				sameHeader.stamp = ros::Time::now();
-				publishTransform("R_correction", TR, sameHeader);
+				publishTransform("R_GoGi1", SimTK::Transform(R_GoGi1, tVec), sameHeader);
 
 				SimTK::Array_<SimTK::Rotation> imuObservations;
 				for (const auto& data : imuData) {
-					const auto& q = data.getQuaternion();
-					SimTK::Rotation R;
-					//if (i == baseBodyIndex)
-						//R = R_correction* SimTK::Rotation(q); // this may work, idk.
-						//R = R_heading * R_correction* SimTK::Rotation(q);
-						R = R_GoGi1* SimTK::Rotation(q);
-					//else
-						//R = R_correction* ~SimTK::Rotation(staticPoseQuaternions[i]) * SimTK::Rotation(q);
-						//R = SimTK::Rotation(q); // this can't be fully correct because it is in the imu_ref_ori frame.
-					//R = R_GoGi1 * SimTK::Rotation(q); // so this has to be better
-					imuObservations.push_back(R);
-					//i++;
+					imuObservations.push_back(R_GoGi1 * SimTK::Rotation(data.getQuaternion()));
 				}
 				return imuObservations;
 			}
