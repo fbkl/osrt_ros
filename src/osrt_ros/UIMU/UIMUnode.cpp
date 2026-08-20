@@ -90,10 +90,10 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 		xGroundRotDeg1 = config.imu_ground_rotation_x;
 		yGroundRotDeg1 = config.imu_ground_rotation_y;
 		zGroundRotDeg1 = config.imu_ground_rotation_z;
-		ROS_WARN_STREAM("imu_ground_rotation_x/y/z are NO LONGER USED: R_GoGi1 now comes "
-				"exclusively from the imu_ref_ori TF. Change that TF instead. Only "
-				"imu_direction_axis still does anything here, and it only affects the "
-				"diagnostic heading readout.");
+		ROS_WARN_STREAM("imu_ground_rotation_x/y/z are NO LONGER USED: the nominal R_GoGi1 "
+				"comes exclusively from the imu_ref_ori TF, change that TF instead. "
+				"imu_direction_axis DOES still matter: it supplies the heading DOF, which "
+				"is not recoverable from the static pose and is folded into R_GoGi1.");
 		start_ik();
 	}
 	else
@@ -166,17 +166,38 @@ void UIMUnode::start_ik()
 		// R_target_source, so looking up (imu_ref_ori <- opensim_frame) gives
 		// R_GiGo; we want R_GoGi, hence the inversion.
 		//
-		// This is also the single place a heading correction belongs, if you ever
-		// want one again: it is just a yaw premultiplied here. Better still, put
-		// it in the imu_ref_ori TF itself and leave this node out of it.
+		// This is the single place the heading correction belongs: it is just a yaw
+		// premultiplied here, see below.
 		clb->R_GoGi1 = ~clb->setGroundOrientationFromTF("imu_ref_ori");
 
 		clb->sameHeader.stamp = ros::Time::now();
-		clb->publishTransform("R_GoGi1", SimTK::Transform(clb->R_GoGi1, SimTK::Vec3{1.1,1,-1}), clb->sameHeader);
-		ROS_INFO_STREAM("R_GoGi1 (ground-to-ground, from the imu_ref_ori TF):\n" << clb->R_GoGi1);
+		clb->publishTransform("R_GoGi1_nominal", SimTK::Transform(clb->R_GoGi1, SimTK::Vec3{1.1,1,-1}), clb->sameHeader);
+		ROS_INFO_STREAM("R_GoGi1 nominal (device convention only, from the imu_ref_ori TF):\n" << clb->R_GoGi1);
 
-		// diagnostic only -- R_heading is not applied anywhere any more.
+		// The heading is NOT recoverable from the static pose. Counting it: each
+		// sensor contributes 3 equations (R_GoB_i * R_BS_i == R_GoGi * q0_i) and 3
+		// unknowns (its own R_BS_i), so N sensors give 3N equations for 3N+1
+		// unknowns -- the extra one being the yaw of R_GoGi. Under-determined by
+		// exactly one, always, no matter how many sensors you add. The missing DOF
+		// therefore HAS to come from outside, and `imu_direction_axis` is that
+		// external input: it asserts which principal axis of the base sensor points
+		// along the subject's anterior direction.
 		clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
+
+		// Fold the per-session yaw into the ground rotation, ONCE, before calibrating.
+		//
+		// This ordering is load-bearing. R_GoGi1 is what calibrateIMUTasks() solves
+		// R_BS against AND what transform() applies to every runtime sample, so
+		// folding here is what keeps the two sides consistent by construction. Do
+		// NOT be tempted to move the heading into the imu_ref_ori TF instead: that
+		// TF encodes the orientation provider's fixed frame convention (z-forward,
+		// y-down for a camera) and is authored once, whereas the heading depends on
+		// where the operator physically strapped the base sensor THIS session.
+		// Different lifetimes; they cannot share a home.
+		clb->R_GoGi1 = clb->R_heading * clb->R_GoGi1;
+
+		clb->publishTransform("R_GoGi1", SimTK::Transform(clb->R_GoGi1, SimTK::Vec3{1.1,1,-1.2}), clb->sameHeader);
+		ROS_INFO_STREAM("R_GoGi1 effective (device convention * heading):\n" << clb->R_GoGi1);
 
 		clb->calibrateIMUTasks(imuTasks);
 	}

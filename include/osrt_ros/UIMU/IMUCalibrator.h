@@ -161,9 +161,13 @@ namespace OpenSimRT {
 			 *
 			 * This MUST use the same ground frame that calibrateIMUTasks() used when
 			 * it solved for R_BS, otherwise a constant rotation offset is baked into
-			 * every solved pose. So: no heading correction here, and none there --
-			 * if you want one, fold the yaw into R_GoGi1 (i.e. into the imu_ref_ori
-			 * TF) so both sides pick it up automatically.
+			 * every solved pose.
+			 *
+			 * The heading correction is therefore NOT applied separately here. It is
+			 * folded into R_GoGi1 by the caller (UIMUnode::start_ik()) before
+			 * calibrateIMUTasks() runs, so both sides pick it up automatically and
+			 * cannot drift apart. Applying it on only one side -- which is what used
+			 * to happen -- bakes a spurious yaw into every solved pose.
 			 */
 			SimTK::Array_<SimTK::Rotation> transform(const std::vector<UIMUData>& imuData) {
 				SimTK::Vec3 tVec(0.5, 0.5, 0.5);
@@ -177,6 +181,15 @@ namespace OpenSimRT {
 				return imuObservations;
 			}
 			SimTK::Rotation R_GoGi1;    // ground-to-ground transformation
+
+			/**
+			 * Per-session heading correction, computed by computeHeadingRotation().
+			 *
+			 * PUBLIC because the caller has to fold it into R_GoGi1 itself, before
+			 * calibrateIMUTasks() runs. See UIMUnode::start_ik().
+			 */
+			SimTK::Rotation R_heading;
+
 			void publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header);
     			std_msgs::Header sameHeader;
 		
@@ -330,6 +343,5 @@ namespace OpenSimRT {
 				impl; // pointer to DriverErasureBase class
 			std::map<std::string, SimTK::Transform> imuBodiesInGround; // R_GB per body
 			std::vector<std::string> imuBodiesObservationOrder;       // imu order
-			SimTK::Rotation R_heading; // heading correction
 	};
 } // namespace OpenSimRT

@@ -185,20 +185,32 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfn
 	return myR;
 }
 /**
- * DIAGNOSTIC ONLY as of now. R_heading is computed, logged and published as the
- * `base_rotation` TF, but it is NOT applied to the IK tasks or to the runtime
- * observations any more.
+ * Compute the per-session heading correction and leave it in R_heading.
  *
- * Reason: applying a heading correction consistently to both sides is
- * algebraically identical to redefining R_GoGi1 := R_heading * R_GoGi1. A heading
- * correction is therefore just a yaw folded into the ground-to-ground rotation,
- * and belongs in the imu_ref_ori TF, not in this node. Applying it to only one
- * side (which is what used to happen -- calibrateIMUTasks() used it, transform()
- * did not) bakes a spurious yaw into every solved pose.
+ * The caller is responsible for folding it in via
  *
- * Keeping the computation around because the printed angle is a useful readout
- * of how far the subject/robot was from the model's nominal heading at
- * calibration time.
+ *     R_GoGi1 := R_heading * R_GoGi1
+ *
+ * BEFORE calling calibrateIMUTasks(). See UIMUnode::start_ik(). Folding it into
+ * R_GoGi1 is what guarantees the correction reaches both calibrateIMUTasks() and
+ * transform(); applying it to only one side (which is what used to happen --
+ * calibrateIMUTasks() used it, transform() did not) bakes a spurious yaw into
+ * every solved pose.
+ *
+ * Why this is needed at all, since it looks like a fudge factor: the heading is
+ * NOT recoverable from the static pose. Each sensor gives 3 equations and brings
+ * 3 unknowns of its own (its R_BS), so N sensors give 3N equations for 3N+1
+ * unknowns -- the leftover being the yaw of R_GoGi. Under-determined by exactly
+ * one, for any N. The missing DOF has to be supplied externally, and
+ * `imuDirectionAxis` is that external input: it names which principal axis (or
+ * its inverse) of the base sensor points along the subject's anterior direction.
+ * That is a weak enough claim to be true of a hand-strapped sensor and strong
+ * enough to pin the last number.
+ *
+ * NOTE: this is deliberately NOT folded into the imu_ref_ori TF. That TF encodes
+ * the orientation provider's fixed frame convention (z-forward / y-down for a
+ * camera) and is authored once per device; the heading depends on where someone
+ * physically mounted the base sensor this session. Different lifetimes.
  */
 SimTK::Rotation
 IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
@@ -242,6 +254,29 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 				imuBodiesObservationOrder.begin(),
 				std::find(imuBodiesObservationOrder.begin(),
 					imuBodiesObservationOrder.end(), baseImuName));
+
+		// GUARD: std::find returns end() when the base body is not in the
+		// observation order, which makes baseBodyIndex == size() and the
+		// staticPoseQuaternions[baseBodyIndex] below an out-of-bounds read. That
+		// yields a garbage non-unit quaternion, and SimTK::Rotation(q) on it either
+		// asserts or silently produces a non-orthogonal matrix. Bail out with the
+		// identity heading instead -- a wrong heading is recoverable, a corrupted
+		// rotation is not.
+		if (baseBodyIndex >= (long)imuBodiesObservationOrder.size()) {
+			ROS_ERROR_STREAM(red << "base imu [" << baseImuName << "] is NOT in the imu "
+					"observation order! No heading correction applied. Check imu_base_body "
+					"against imu_observation_order." << reset);
+			R_heading = SimTK::Rotation();
+			return R_heading;
+		}
+		if (baseBodyIndex >= (long)staticPoseQuaternions.size()) {
+			ROS_ERROR_STREAM(red << "staticPoseQuaternions has only " << staticPoseQuaternions.size()
+					<< " entries but the base imu is at index " << baseBodyIndex
+					<< ". Calibration data is missing or a method branch failed silently. "
+					"No heading correction applied." << reset);
+			R_heading = SimTK::Rotation();
+			return R_heading;
+		}
 
 		// get initial measurement of base imu
 		//cout << baseBodyIndex << endl;
@@ -492,9 +527,16 @@ void IMUCalibrator::calibrateIMUTasks(
 	if (staticPoseQuaternions.size() != imuTasks.size())
 		ROS_ERROR_STREAM(red << "staticPoseQuaternions.size() [" << staticPoseQuaternions.size()
 				<< "] != imuTasks.size() [" << imuTasks.size()
-				<< "]! calibration is about to be wrong or to read out of bounds." << reset);
+				<< "]! This calibration is WRONG. Only the first "
+				<< std::min(staticPoseQuaternions.size(), imuTasks.size())
+				<< " sensors will be calibrated; the rest keep whatever orientation they "
+				"already had." << reset);
 
-	for (size_t i = 0; i < staticPoseQuaternions.size(); ++i) {
+	// GUARD: loop to the shorter of the two. The check above used to only warn and
+	// then index imuTasks[i] anyway, which is an out-of-bounds WRITE whenever there
+	// are more static poses than tasks.
+	const size_t n = std::min(staticPoseQuaternions.size(), imuTasks.size());
+	for (size_t i = 0; i < n; ++i) {
 		const auto& bodyName = imuTasks[i].body; // NOTE: this is the BASE frame name
 		const auto& q0 = staticPoseQuaternions[i];
 
