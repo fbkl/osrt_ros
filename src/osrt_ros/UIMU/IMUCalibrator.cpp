@@ -38,6 +38,8 @@
 #include <SimTKcommon/internal/Quaternion.h>
 #include <SimTKcommon/internal/Rotation.h>
 #include <chrono>
+#include <cmath>
+#include <sstream>
 #include <ros/ros.h>
 #include <geometry_msgs/PoseArray.h>
 #include <thread>
@@ -127,6 +129,127 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 		}
 		else
 			ROS_WARN_STREAM("couldnt find physical frame for label: "<< label);
+	}
+
+	// =====================================================================
+	// LOUD CHECK: is the model's DEFAULT pose the same as its ZERO pose?
+	//
+	// calibrateIMUTasks() solves R_BS = ~R_GoB_default * R_GoS, which is only
+	// correct if the subject is physically holding the model's DEFAULT pose during
+	// the static recording. `initSystem()` above poses the model at each
+	// coordinate's default_value, NOT at zero. So if any default_value is non-zero,
+	// "default pose" and "all coordinates zero" are two different poses -- and
+	// anything that resets to zero (the visualiser, the marker/vicon path) will
+	// disagree with this calibration by exactly that difference, silently.
+	//
+	// Real example this was written for: MOBL_ARMS_41.osim has groundthorax/r_y
+	// with default_value -1.5707963 about axis (0,1,0), i.e. a -90 deg YAW on the
+	// base body. Cost a long time to find because every symptom pointed at the
+	// frame plumbing instead of at the model file.
+	//
+	// Deliberately emitted at WARN/ERROR: INFO-level output does not survive the
+	// paramiko launch path, and ROS_ERROR lands in the stderr/warning log which
+	// does get through.
+	// =====================================================================
+	{
+		std::vector<std::string> nonZeroDefaults;
+		for (int ci = 0; ci < model.getCoordinateSet().getSize(); ++ci) {
+			const OpenSim::Coordinate& c = model.getCoordinateSet().get(ci);
+			const double dv = c.getDefaultValue();
+			if (std::fabs(dv) < 1e-9) continue;
+			const bool isRot =
+				(c.getMotionType() == OpenSim::Coordinate::MotionType::Rotational);
+			std::stringstream ss;
+			ss << c.getName() << " = " << dv;
+			if (isRot) ss << " rad (" << dv * 180.0 / SimTK::Pi << " deg)";
+			else       ss << " m";
+			nonZeroDefaults.push_back(ss.str());
+		}
+
+		// What actually matters is NARROWER than "some body is rotated in ground".
+		//
+		// A non-identity R_GoB is completely normal and is handled correctly by the
+		// ~R_GoB factor in calibrateIMUTasks(): iiwa14 has link_0 at 90 deg about X
+		// purely from the URDF Z-up -> OpenSim Y-up conversion, and it calibrates
+		// fine. Warning on that would be crying wolf.
+		//
+		// The dangerous case is a non-zero ROTATIONAL default on a joint whose
+		// parent is GROUND, because that rotates the entire model relative to the
+		// world -- so anything that resets to the zero pose ends up 90-ish degrees
+		// away from what calibration assumed. MOBL's groundthorax/r_y is exactly
+		// this; iiwa14 and raquegopal have nothing of the kind.
+		std::vector<std::string> groundRotations;
+		for (int ci = 0; ci < model.getCoordinateSet().getSize(); ++ci) {
+			const OpenSim::Coordinate& c = model.getCoordinateSet().get(ci);
+			const double dv = c.getDefaultValue();
+			if (std::fabs(dv) < 1e-9) continue;
+			if (c.getMotionType() != OpenSim::Coordinate::MotionType::Rotational) continue;
+			try {
+				const OpenSim::Joint& jnt = c.getJoint();
+				const OpenSim::Frame& pbase = jnt.getParentFrame().findBaseFrame();
+				if (pbase.getName() != model.getGround().getName()) continue;
+				std::stringstream ss;
+				ss << c.getName() << " on joint [" << jnt.getName() << "] = "
+					<< dv * 180.0 / SimTK::Pi << " deg  (parent is GROUND)";
+				groundRotations.push_back(ss.str());
+			} catch (const std::exception& e) {
+				ROS_WARN_STREAM("could not resolve joint for coordinate ["
+						<< c.getName() << "]: " << e.what());
+			}
+		}
+
+		// Context only, never a trigger -- see the note above about iiwa14.
+		for (const auto& kv : imuBodiesInGround) {
+			const SimTK::Vec4 aa = kv.second.R().convertRotationToAngleAxis();
+			const double deg = aa[0] * 180.0 / SimTK::Pi;
+			if (std::fabs(deg) < 1e-6) continue;
+			ROS_INFO_STREAM(cyan << "default-pose R_GoB: " << kv.first << " rotated "
+					<< deg << " deg about (" << aa[1] << ", " << aa[2] << ", " << aa[3]
+					<< ") -- normal, handled by ~R_GoB" << reset);
+		}
+
+		if (!groundRotations.empty()) {
+			ROS_ERROR_STREAM(red
+				<< "\n"
+				<< "############################################################\n"
+				<< "###  THIS MODEL HAS A NON-ZERO INITIAL (DEFAULT) STATE   ###\n"
+				<< "###  AND IT WILL OFFSET YOUR CALIBRATION.                ###\n"
+				<< "############################################################"
+				<< reset);
+			for (const auto& s : groundRotations)
+				ROS_ERROR_STREAM(red << "###  " << s << reset);
+			ROS_ERROR_STREAM(red
+				<< "###\n"
+				<< "###  calibrateIMUTasks() uses R_BS = ~R_GoB_default * R_GoS.\n"
+				<< "###  R_GoB_default is taken at the model's DEFAULT pose (above),\n"
+				<< "###  NOT at the all-coordinates-zero pose. If the subject is\n"
+				<< "###  standing in the ZERO pose, or if the visualiser/marker path\n"
+				<< "###  resets to ZERO, they disagree with this calibration by\n"
+				<< "###  exactly the rotations listed above.\n"
+				<< "###\n"
+				<< "###  Decide which pose is the truth and make everything agree:\n"
+				<< "###    - subject matches ZERO    -> zero the default_value in the .osim\n"
+				<< "###    - subject matches DEFAULT -> make the visualiser reset to the\n"
+				<< "###                                default pose, not to zero\n"
+				<< "############################################################"
+				<< reset);
+		}
+
+		if (!nonZeroDefaults.empty()) {
+			std::stringstream ss;
+			for (const auto& s : nonZeroDefaults) ss << "\n###    " << s;
+			ROS_WARN_STREAM(yellow
+				<< "\n### Coordinates with a non-zero default_value ("
+				<< nonZeroDefaults.size() << "):" << ss.str()
+				<< "\n### These are NOT necessarily a problem -- they only matter if the "
+				"subject is not physically holding this pose during the static recording. "
+				"Ones below ground level give PER-BODY errors, not a uniform offset, so the "
+				"two are distinguishable in the output."
+				<< reset);
+		} else {
+			ROS_INFO_STREAM(green << "Model default pose == zero pose (no non-zero "
+					"default_value anywhere). Calibration assumptions hold." << reset);
+		}
 	}
 
 	auto nh = ros::NodeHandle("~");
