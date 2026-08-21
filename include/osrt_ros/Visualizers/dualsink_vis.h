@@ -1,6 +1,11 @@
 #ifndef VISUALIZER_DUALSINK_HEADER_FBK_26052023
 #define VISUALIZER_DUALSINK_HEADER_FBK_26052023
 
+// NAG -- see the longer note in Pipeline/dualsink_pipe.h. Short version: the Dual/DualPos
+// message pair and the per-sink classes are downstream of out-of-band label priming, and go
+// away when labels travel with the data.
+#pragma message("osrt_ros: Dual/DualPos + dualsink visualisers are TECH DEBT scheduled for removal -- see first_paperino.md")
+
 #include "opensimrt_msgs/Dual.h"
 #include "opensimrt_msgs/DualPos.h"
 #include "osrt_ros/Visualizers/visualizer_common.h"

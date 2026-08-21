@@ -1,6 +1,23 @@
 #ifndef PIPELINE_DUALSINK_HEADER_FBK_21072022
 #define PIPELINE_DUALSINK_HEADER_FBK_21072022
 
+// NAG -- deliberate, do not silence without deleting the thing it is nagging about.
+//
+// The dual-sink pattern exists because every sink/source is its own hardcoded class, which
+// in turn exists because label ordering is primed out-of-band (Reshuffler + a service
+// handshake) instead of being carried by the data. That priming is the debt: it buys
+// microseconds nobody measures and costs a whole class of silent failures (handshake never
+// happened, remap written wrong, labels empty -> node does nothing and says nothing), plus
+// it makes a single node impossible to test by replaying a bag into it.
+//
+// NOT the debt: the custom time sequencing. ROS1 message_filters ApproximateTime genuinely
+// falls over on the ~300ms-lagged insole stream, so that workaround is load-bearing.
+//
+// Plan: carry labels with the data (latched labels topic, or in-message), decode with a
+// cached lookup, then sinks/sources stop needing to be classes and can just be composed.
+// Do it with the ROS2 port. See first_paperino.md.
+#pragma message("osrt_ros: dualsink/Reshuffler label-priming is TECH DEBT scheduled for removal -- see first_paperino.md")
+
 #include "message_filters/subscriber.h"
 #include "message_filters/time_synchronizer.h"
 #include "opensimrt_msgs/CommonTimed.h"
