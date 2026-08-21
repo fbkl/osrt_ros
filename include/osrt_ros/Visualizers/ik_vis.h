@@ -24,7 +24,7 @@ namespace Visualizers
 
 			nh.param<std::string>("own_tf_prefix", own_tf_prefix, "ik/");
 			visualizer->tf_prefix = own_tf_prefix;
-			model_reset();
+			pose_model_default();
 		}
 		void after_callback() {};
 	};

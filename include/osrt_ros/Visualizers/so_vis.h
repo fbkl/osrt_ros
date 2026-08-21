@@ -23,7 +23,7 @@ namespace Visualizers
 			void callback_filtered(const opensimrt_msgs::DualPosConstPtr& message); 
 		void after_vis() {
 			visualizer->tf_prefix = "so/";
-			model_reset();
+			pose_model_default();
 		}
 
 			//here it has to be ordered!

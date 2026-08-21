@@ -12,7 +12,7 @@ namespace Visualizers
 		void after_callback() {};
 		void after_vis() {
 			visualizer->tf_prefix = "id/";
-			model_reset();
+			pose_model_default();
 			Visualizers::GrfVis::after_vis();
 			
 		}

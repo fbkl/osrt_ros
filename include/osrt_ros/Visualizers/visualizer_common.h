@@ -42,16 +42,38 @@ namespace Visualizers
 			bool visualiseIt= false;
 			ros::Subscriber sub, sub_filtered;
 			Ros::Reshuffler input;
+			SimTK::Vector defaultQ; // the model's authored default pose, captured once at onInit
 			OpenSim::Object* muscleModel;
-			ros::ServiceServer resetModelSrv;
+			ros::ServiceServer poseDefaultSrv, poseZeroSrv, resetModelSrv;
 			std::string vis_name;
-			
+
+			// "reset" was ambiguous: it meant zero, but the model's baseline is its
+			// authored default pose (what initSystem() gives, and what IMUCalibrator
+			// assumes). Name the pose, not the operation.
+			bool poseModelDefault(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+			{
+
+				pose_model_default();
+				return true;
+
+			}
+
+			bool poseModelZero(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+			{
+
+				pose_model_zero();
+				return true;
+
+			}
+
+			[[deprecated("'reset' was ambiguous and used to mean ZERO; it now poses at the model DEFAULT. bind pose_model_default() or pose_model_zero() explicitly and delete this alias.")]]
 			bool resetModel(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 			{
-			
-				model_reset();
+
+				ROS_WARN_ONCE("service [reset] is deprecated and now poses the model at its DEFAULT values, not zero. use [pose_default] or [pose_zero].");
+				pose_model_default();
 				return true;
-			
+
 			}
 
 			void set_delay_from_header(ros::Time t)
@@ -86,7 +108,9 @@ namespace Visualizers
 				input.get_labels(nh);
 				ROS_DEBUG_STREAM("Setting up model.");
 
-				resetModelSrv = nh.advertiseService("reset", &VisualizerCommon::resetModel, this);
+				poseDefaultSrv = nh.advertiseService("pose_default", &VisualizerCommon::poseModelDefault, this);
+				poseZeroSrv = nh.advertiseService("pose_zero", &VisualizerCommon::poseModelZero, this);
+				resetModelSrv = nh.advertiseService("reset", &VisualizerCommon::resetModel, this); // deprecated alias, now DEFAULT not zero
 
 				switch(m)
 				{
@@ -111,6 +135,14 @@ namespace Visualizers
 					ROS_WARN_STREAM("model is not valid yet for some reason, trying to make it valid");
 					model->initSystem();
 				}
+				// Capture the model's authored default pose ONCE, straight from the system.
+				// Deliberately independent of input.labels: the default pose is a property of
+				// the MODEL, so it must not depend on the Reshuffler handshake having happened,
+				// on the remaps being written correctly, or on label order. Note also that
+				// ModelObserver::update does `state.updQ() = q`, and Q is in MULTIBODY-TREE
+				// order, which is NOT CoordinateSet order -- so a name-keyed lookup over
+				// input.labels would be silently wrong even when the handshake did work.
+				defaultQ = model->initSystem().getQ();
 				nh.param<bool>("visualise", visualiseIt, true);
 				if (visualiseIt)
 				{
@@ -144,25 +176,37 @@ namespace Visualizers
 				model->initSystem();
 				ROS_WARN_ONCE("Not implemented for VisualizerCommon. initial setup of the thing");
 			}
-			void model_reset()
+			// Poses the model for display. use_defaults=true uses each coordinate's authored
+			// default_value -- what initSystem() gives, and what IMUCalibrator::setup() assumes
+			// when it captures imuBodiesInGround. false forces zero, which is a DEBUGGING pose
+			// and agrees with the calibration only for models whose defaults are all zero.
+			// (MOBL_ARMS has r_y = -90 deg on the ground-attached groundthorax joint: zero here
+			// meant the visualiser and the calibration silently disagreed by exactly that yaw.)
+			void pose_model(bool use_defaults)
 			{
-				int i =0;
-				SimTK::Vector q(input.labels.size());
-				for (auto label:input.labels)
+				// NO input.labels here, on purpose -- see defaultQ's capture in onInit().
+				if (!visualizer)
 				{
-					q[i]=0.0; // to show like a model, make it nicer
-					i++;
+					ROS_ERROR("cannot pose the model: no visualizer/observer exists. setup bug.");
+					return;
 				}
+				if (defaultQ.size() == 0)
+				{
+					ROS_ERROR("cannot pose the model: the default pose was never captured, so the model system was not initialised at onInit(). refusing to publish a pose rather than publishing a wrong one.");
+					return;
+				}
+				SimTK::Vector q(defaultQ);
+				if (!use_defaults)
+					q.setToZero();
 				visualizer->update(q);
-
-
-
 			}
+			void pose_model_default() { pose_model(true); }
+			void pose_model_zero() { pose_model(false); }
 
 			virtual void after_vis()
 			{
 				ROS_WARN_ONCE("Not implemented for VisualizerCommon. post-setup of the thing");
-				model_reset();
+				pose_model_default();
 			}
 
 			virtual void after_callback()
