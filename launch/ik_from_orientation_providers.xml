@@ -15,6 +15,100 @@
 	<!--arg name="model_file"               default="/srv/data/gait1992/residual_reduction_algorithm/model_adjusted.osim" / -->
 	<arg name="model"          		default="raquegopal" />
 	<arg name="model_file"          	default="/srv/host_data/$(arg model)/$(arg model).osim" />
+	<!-- =================================================================== -->
+	<!--  📣 OI. FUTURE FREDERICO. THE CALIBRATION DANCE. READ IT. 📣        -->
+	<!--     (written 2026-08-21 for the version of you that is running on   -->
+	<!--      three hours of sleep and cannot be expected to re-derive this) -->
+	<!-- =================================================================== -->
+	<!--
+	     ⛔⛔ FIRST, THE THING THAT WILL RUIN YOUR WEEK IF YOU SKIM: ⛔⛔
+
+	         THE ROTATION AMOUNT BELOW IS ***PER MODEL***. IT IS NOT A CONSTANT.
+	         IT IS NOT "THE FIX". IT IS NOT 90 DEG. IT IS *** WHATEVER THAT ONE
+	         MODEL'S GROUND JOINT SAYS IT IS ***, AND FOR MOST MODELS IT IS ZERO.
+
+	         THIS FILE DEFAULTS TO model=raquegopal. 👉 raquegopal NEEDS NO ROTATION. 👈
+	         IF YOU DO THE MOBL DANCE ON raquegopal YOU WILL YAW IT 90 DEG WRONG AND
+	         SPEND A DAY BLAMING IMUCalibrator. DO NOT. 🙅
+
+	     ================== WHY THERE IS A DANCE AT ALL ==================
+
+	     calibration assumes  R_BS = ~R_GoB_def * R_GoS , where R_GoB_def is captured at
+	     the MODEL'S DEFAULT POSE (initSystem(), i.e. each coordinate's default_value).
+
+	     ==> THE PHYSICAL THING MUST BE STANDING IN THE MODEL'S DEFAULT POSE WHEN YOU
+	         HIT CALIBRATE. that is the whole rule. everything below is a consequence.
+
+	     most models: default pose == zero pose == "facing the markers". NO DANCE. 🎉
+	     MOBL_ARMS:   default pose is YAWED, because MOBL_ARMS_41.osim has
+
+	              joint groundthorax, coordinate r_y, default_value = -1.5707963 rad
+	                                                                 = >>> -90 deg <<<
+
+	         and groundthorax is GROUND-ATTACHED, so that yaws THE ENTIRE MODEL.
+	         THAT number, in THAT file, is the only reason MOBL needs turning. 🎯
+
+	     ============ HOW TO KNOW, WITHOUT READING ANY .osim ============
+
+	     IMUCalibrator::setup() ALREADY PRINTS THIS AT YOU. 📣 it fires a big red
+	     ERROR BANNER naming the joint and the angle whenever a model has a non-zero
+	     ROTATIONAL default on a GROUND-ATTACHED joint. (ERROR level on purpose: INFO
+	     does not survive the paramiko/ssh launch path, see the logging note below.)
+
+	         BANNER FIRES  -> that angle IS your dance. rotate the rig by it.
+	         BANNER SILENT -> ✨ NO DANCE ✨. face the markers. calibrate. done.
+
+	     iiwa__ : silent (every default is zero).           NO DANCE.
+	     raquegopal : warn-list only — it has 17 non-zero defaults but they are all
+	                  LEGS, none ground-attached, so no global yaw. NO DANCE. 🦵
+	     MOBL   : SCREAMS. -90 deg. DANCE. 💃
+
+	     ================= THE MOBL DANCE, AS PERFORMED =================
+	                    (2026-08-21. worked. do not re-derive.)
+
+	       1. calibrate the CAMERAS with the rig facing the WALL MARKERS.
+	       2. rotate the test rig to MOBL's default pose (see sign note). 🔄
+	       3. calibrate IK.
+
+	     the wrong turn, so you do not repeat it:
+	       tried +90 first  -> cameras landed on the WRONG SIDE of the body...
+	                           ⚠️ ...BUT THE MOVEMENT WAS CORRECT. ⚠️
+	                           READ THAT TWICE. right movement + wrong placement
+	                           == A SIGN ERROR, *NOT* A BROKEN CALIBRATION.
+	                           DO NOT GO REWRITE IMUCalibrator. IT IS FINE. 🙅
+	       then +180 more   -> everything correct, cameras AND model. ✅
+	       net rotation = +270 = >>> -90 <<< . FIRST GUESS HAD THE SIGN BACKWARDS.
+	                                          THAT WAS THE ENTIRE MISTAKE.
+
+	     🔍 AND LOOK: -90 is EXACTLY MOBL's r_y default_value. the number you need is
+	        LITERALLY THE NUMBER IN THE BANNER. that is a very good sign that this is
+	        understood and not just fitted.
+	        ⚠️ BUT: observed ONCE, on ONE model. the sign correspondence between "the
+	        default_value in the .osim" and "which way you physically turn the rig" is
+	        NOT PROVEN. if a future model's banner says +40 deg, TRY BOTH SIGNS and
+	        write down which one won. 📝
+
+	     🚧 STILL OPEN — DO NOT TREAT AS SETTLED: nobody has checked these axes against
+	        the VICON coordinate system. this was calibrated against WALL MARKERS only.
+	        WHEN YOU ARE NEXT IN THE VICON ROOM, CHECK THIS BEFORE TRUSTING ANY NUMBER
+	        THAT COMES OUT. needing a tweak there is EXPECTED, not a regression. 🧾
+
+	     ============ WHY THIS IS NOT AUTOMATED (IT IS NOT LAZINESS) ============
+
+	     R_GoGi has 3 DOF. tilt (2 DOF) is OBSERVABLE — gravity gives it to you. yaw
+	     (1 DOF) IS NOT OBSERVABLE AT ALL: vio picks its world yaw arbitrarily and
+	     there is no magnetometer. the missing DOF *MUST* come from outside the sensors.
+	     imu_direction_axis below IS that mechanism, and it is why you are turning a rig
+	     with your hands like it is 1997. THIS IS THE DESIGN, NOT A BODGE. 🤝
+
+	     PROPER FIX, someday: calibrate against the ACTUAL pose instead of the default.
+	     exact for the KUKA (it has joint encoders). for humans, default pose + "hold
+	     still" is all we have, so the dance stays.
+
+	     see also: the equally shouty block in testorama_lower_body.launch about
+	     imu_ref_ori PARENTING. that one is a PITCH. this one is a YAW.
+	     DIFFERENT AXIS. DIFFERENT BUG. DO NOT MERGE THEM. 🚫
+	-->
 	<arg name="imu_base_body"               default="pelvis" />
 	<arg name="imu_direction_axis"          default="z" />
 	<arg name="machine"             	default=""/>

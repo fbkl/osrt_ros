@@ -9,6 +9,44 @@
 	<arg unless="$(arg static)"   name="node_type" value="adjustable_node" />
 	<!--arg unless="$(arg static)"   name="node_type" value="modifiable_fixed_transform_publisher.py" /-->
 	<arg name="debug" value="false"/>
+	<!-- ==================================================================== -->
+	<!--  🛑 LISTEN HERE BUDDY. STOP. READ THIS BEFORE TOUCHING THE 2 LINES  -->
+	<!--     AT THE BOTTOM OF THIS BLOCK. YES, YOU. HI. IT'S ME. IT'S YOU.   -->
+	<!-- ==================================================================== -->
+	<!--
+	     YES the commented-out `map` line looks obviously right.
+	     YES past-you wrote a whole beautiful analysis proving it.
+	     THAT ANALYSIS WAS FLAGGED AS OVERCONFIDENT AND IT IS STILL UNRESOLVED.
+	     DO NOT JUST UNCOMMENT IT AND HOPE. 😤
+
+	     ⚠️  THE PLATFORM CURRENTLY WORKS AS PARENTED BELOW (2026-08-21, verified on
+	         MOBL). Do not break a working rig chasing elegance. Especially on a friday.
+
+	     WHAT IS ACTUALLY KNOWN:
+
+	       * parenting under `opensim_frame` composes the opensim Y-up -> ros Z-up
+	         conversion INTO imu_ref_ori. that is 90 deg about a HORIZONTAL axis.
+	         that is a >>> PITCH <<<.
+	       * the heading problem is a >>> YAW <<<.
+	       * DIFFERENT AXIS. DIFFERENT BUG. NOT THE SAME PROBLEM. 🙅
+	       * if you "fix" both at once you will never know which one did what, and you
+	         will be right back here in three months reading this comment again,
+	         confused, probably also hungry. (sorry. love you. eat something.)
+
+	     THE TEST THAT SEPARATES THEM — needs NO subject, NO model, NO calibration,
+	     costs you 30 seconds in rviz:
+
+	         imu_ref_ori IS Gi: the sensor world frame, drawn in opensim ground.
+	         Gi is GRAVITY-ALIGNED. so for a camera-optical Gi (Z fwd, Y down):
+
+	              ➡️  +Y MUST POINT DOWN IN map.  ⬇️
+
+	         - +Y points down, model still yawed  -> parenting is FINE. it's the heading.
+	           GO AWAY FROM THIS FILE. the answer is not here.
+	         - +Y points anywhere else            -> parenting. change ONE line. retest.
+
+	     ONE LINE AT A TIME. RETEST BETWEEN. THAT IS THE WHOLE LESSON. 🧘
+	-->
 	<arg name="imu_ref_ori_parent" value="opensim_frame"/>
 	<!-- arg name="imu_ref_ori_parent" value="map"/ -->
 
