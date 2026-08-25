@@ -8,7 +8,10 @@
 	<arg name="direction_axis"		default="z"/>	
 	<arg name="bypass_heading_computation" 		default="true"/>
 	<arg name="heading_debug"			default="0"/>
-        <node pkg="osrt_ros" type="OnlineUpperLimb" 	name="ik_upperbody_node" output="screen" >
+	<!-- was type="OnlineUpperLimb" until 2026-08-25. That binary was identical to
+	     OnlineLowerLimb apart from registering a muscle type no model of ours uses.
+	     Only behavioural difference now: OnlineLowerLimb starts an AsyncSpinner(4). -->
+        <node pkg="osrt_ros" type="OnlineLowerLimb" 	name="ik_upperbody_node" output="screen" >
 		<param name="model_file" 		value="/srv/data/mobl2016/mobl2016_v03.osim" />
 		<param name="imu_base_body" 		value="thorax" />
 		<rosparam param="imu_observation_order" >['thorax','humerus','radius']</rosparam>

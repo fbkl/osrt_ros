@@ -17,8 +17,26 @@ int main(int argc, char** argv) {
 		ros::init(argc, argv, "online_lower_limb_uimu_ik");
 		ros::NodeHandle n;
 
-		//if (false && ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {ros::console::notifyLoggerLevelsChanged();}
-		if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Fatal)) {ros::console::notifyLoggerLevelsChanged();}
+		// DO NOT re-add a set_logger_level() call here without reading this. 🙃
+		//
+		// There used to be a line setting this to Fatal. It silently ate EVERY
+		// ROS_INFO/WARN/ERROR from this package -- including the loud model-default-pose
+		// banner in IMUCalibrator::setup() -- and cost a whole debugging session that
+		// went looking at paramiko, tmux and log4cxx instead.
+		//
+		// The trap: ROSCONSOLE_DEFAULT_NAME is NOT the root logger. ros/console.h:302-304
+		//
+		//     #define ROSCONSOLE_NAME_PREFIX  "ros" "." ROSCONSOLE_PACKAGE_NAME
+		//     #define ROSCONSOLE_DEFAULT_NAME ROSCONSOLE_NAME_PREFIX
+		//
+		// ROS_PACKAGE_NAME is a per-package compile-time macro, so in here it expands to
+		// "ros.osrt_ros" -- this package only. Anything inherited from opensimrt_core logs
+		// under "ros.opensimrt_core", a SIBLING logger, and is completely unaffected. That
+		// asymmetry is why the node looked half-silenced rather than silenced, which is
+		// exactly what made it hard to spot.
+		//
+		// If you ever do want to gag the whole process, the macro you want is
+		// ROSCONSOLE_ROOT_LOGGER_NAME ("ros"). Leaving it unset gives the default: INFO.
 		UIMUnode o;
 
 		ros::NodeHandle nh("~");

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
 
-        <node pkg="osrt_ros" type="OnlineUpperLimb" 	name="ik_upper_node" output="screen" launch-prefix="gdb -ex run --args">
+	<!-- was type="OnlineUpperLimb" until 2026-08-25; see ik_upper.launch. -->
+        <node pkg="osrt_ros" type="OnlineLowerLimb" 	name="ik_upper_node" output="screen" launch-prefix="gdb -ex run --args">
 		<!-- param name="resample_period" 		value="0.01" / -->
 		<param name="subject_dir" 		value="/mobl2016/" />
 		<param name="model_file" 		value="mobl2016_v03.osim" />
