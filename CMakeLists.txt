@@ -227,6 +227,12 @@ target_link_libraries(o_node
 add_executable(assimp_test src/osrt_ros/assimp.cpp)
 target_link_libraries(assimp_test assimp ${VTK_LIBRARIES} ${catkin_LIBRARIES})
 
+## what does IMUCalibrator::computeAvgStaticPose() actually compute? SimTK only, no ROS,
+## no OpenSim, no model -- builds in seconds, so it can be run on every host to compare
+## simbody versions. See doc/ or paper_notes.md.
+add_executable(quaternion_test src/osrt_ros/quaternion_test.cpp)
+target_link_libraries(quaternion_test ${OpenSim_LIBRARIES})
+
 
 set(BUILD_RVIZ_PLUGIN ON)
 
