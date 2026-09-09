@@ -1,13 +1,18 @@
 #pragma once
 #include <Eigen/SVD>
 #include <iostream>
+#include <vector>   // was only ever arriving transitively
 
 /// Method to find the average of a set of rotation quaternions using Singular Value Decomposition
 /*
  * The algorithm used is described here:
  * https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf
  */
-Eigen::Vector4f quaternionAverage(std::vector<Eigen::Vector4f> quaternions)
+// `inline` is load-bearing: this is a free function DEFINED in a header. #pragma once only
+// stops re-inclusion inside one translation unit, so without inline every .cpp that includes
+// this emits its own copy and the link fails with "multiple definition". It survived for years
+// because only external_average_pose.cpp included it.
+inline Eigen::Vector4f quaternionAverage(const std::vector<Eigen::Vector4f>&quaternions)
 {
 	if (quaternions.size() == 0)
 	{
