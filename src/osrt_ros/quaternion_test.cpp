@@ -64,6 +64,21 @@ int main() {
     show("Rotation(q)*Rotation(p) as quat",
          (Rotation(q) * Rotation(p)).convertRotationToQuaternion());
 
+    // THE PROBE -- ANSWERED 2026-09-09, and it does not compile, deliberately left as a
+    // comment rather than code. Writing
+    //
+    //     Vec4 raw = q * p;      // Quaternion * Quaternion
+    //
+    // fails IDENTICALLY on simbody 3.5.4 (host) and 3.8 (container):
+    //
+    //     error: conversion from 'SimTK::Vec<4>::Result<SimTK::Vec<4> >::MulNon'
+    //            {aka 'void'} to non-scalar type 'SimTK::Vec4' requested
+    //
+    // SimTK forbids Vec*Vec on purpose -- there is no sensible elementwise meaning -- so
+    // `Quaternion * Quaternion` does not exist in EITHER version. Use Rotation composition,
+    // or a Hamilton product written out by hand as above.
+    std::printf("  Quaternion * Quaternion       does not compile on 3.5.4 OR 3.8 (Vec4*Vec4 = void)\n");
+
     std::printf("\n== 3. the actual loop from IMUCalibrator.h:290 ==\n");
     // ten samples of a sensor that is NOT perfectly still: small jitter about a mean
     const int n = 10, m = 1;

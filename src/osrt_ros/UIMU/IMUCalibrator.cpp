@@ -830,7 +830,7 @@ void IMUCalibrator::computeAvgStaticPoseCommon()
 		case "old"_sh:
 			std::cout << "You entered \'old\'\n";
 			ROS_INFO("This is the default method, using the oldest version of averaging quaternions and internal heading.");
-			staticPoseQuaternions = impl->computeAvgStaticPose();
+			staticPoseQuaternions = impl->getFirstPose();
 			break;
 		case "topics"_sh:
 			std::cout << "You entered \'topics\'\n";
@@ -864,7 +864,7 @@ void IMUCalibrator::computeAvgStaticPoseCommon()
 	if (false)
 	{
 		ROS_DEBUG_STREAM("\n===== Calibration results ============");
-		auto old_avg_response_list = impl->computeAvgStaticPose();
+		auto old_avg_response_list = impl->getFirstPose();
 		for (size_t i=0;i<old_avg_response_list.size(); i++)
 		{
 			ROS_DEBUG_STREAM("\nOLD:" <<old_avg_response_list[i] <<

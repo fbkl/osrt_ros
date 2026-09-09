@@ -26,6 +26,7 @@
 #pragma once
 
 #include "InverseKinematics.h"
+#include "osrt_ros/UIMU/QuaternionAverage.h"
 #include "UIMUInputDriver.h"
 #include "Utils.h"
 #include "ros/service_client.h"
@@ -270,58 +271,92 @@ namespace OpenSimRT {
 					}
 
 					/**
-					 * Compute average of 3D rotations. Given a list of IMUData containing
-					 * the quaternion measurements, computes the average quaternion error
-					 * from the first sample and adds it back to the first sample to return
-					 * the average quaternions.
+					 * Returns the FIRST recorded sample. It does NOT average anything.
 					 *
-					 * Source:
-					 * https://math.stackexchange.com/questions/1984608/average-of-3d-rotations
+					 * Renamed 2026-09-09. It used to be called computeAvgStaticPose() and its doc
+					 * comment claimed to average. Measured (osrt_ros/quaternion_test.cpp): it does
+					 * not. The accumulator line was
+					 *
+					 *     avgQuaternionErrors[j] = avgQuaternionErrors[j] * (~q * q);
+					 *
+					 * and SimTK::Quaternion_ is `: public Vec<4,P>` with no operators of its own, so
+					 * `~q` is Vec4's TRANSPOSE (a Row4), not a conjugate. `~q * q` is therefore a DOT
+					 * PRODUCT, exactly 1.0 for any unit quaternion. The accumulator started at
+					 * identity and got multiplied by 1.0 once per sample. Ten samples spanning
+					 * 18 degrees returned the first one, bit for bit. The measurement was discarded
+					 * on contact.
+					 *
+					 * `~` means conjugate in quaternion notation and transpose in SimTK's. That is
+					 * the entire bug.
+					 *
+					 * Kept, honestly named, because frkle measured that one sample is enough in
+					 * practice: the subject barely moves during the static pose. When that stops
+					 * being true, computeAvgStaticPoseSVD() below is the drop-in replacement.
 					 */
-					virtual std::vector<SimTK::Quaternion> computeAvgStaticPose()  {
+					virtual std::vector<SimTK::Quaternion> getFirstPose() {
 						std::unique_lock<std::mutex> lock(calibration_mtx);
-						while(!data_ready)
-						{
-							cv_calibration_done.wait(lock);
-						}
+						while (!data_ready) { cv_calibration_done.wait(lock); }
 
-						int n = initIMUDataTable.size();    // num of recorded frames
-						int m = initIMUDataTable[0].size(); // num of imu devices
-						auto avgQuaternionErrors =
-							std::vector<SimTK::Quaternion>(m, SimTK::Quaternion());
-						auto avgQuaternions(avgQuaternionErrors);
+						const int n = initIMUDataTable.size();    // num of recorded frames
+						const int m = initIMUDataTable[0].size(); // num of imu devices
 
-						ROS_INFO_STREAM("OLD: Using norm average of rotations");
+						ROS_ERROR_STREAM(
+							"\n*****************************************************************\n"
+							"* getFirstPose(): recorded " << n << " frames and is USING EXACTLY ONE.\n"
+							"* This is NOT an average. The other " << (n > 0 ? n - 1 : 0) << " frames are thrown away.\n"
+							"* Fine while the subject holds still. NOT fine on the kuka, or on\n"
+							"* any rig where the static pose is noisy.\n"
+							"* The fix is written and tested: call computeAvgStaticPoseSVD().\n"
+							"*****************************************************************");
 
-
-						// Quaternion product for each imu
+						std::vector<SimTK::Quaternion> firstPose;
+						firstPose.reserve(m);
 						for (int j = 0; j < m; ++j)
-							for (int i = 0; i < n; ++i) {
-								// NOTE: requires `.getQuaternion()` function of the IMUData
-								// type.
-								const auto& q = initIMUDataTable[i][j].getQuaternion();
-								avgQuaternionErrors[j] = avgQuaternionErrors[j] * (~q * q);
-							}
+							firstPose.push_back(initIMUDataTable[0][j].getQuaternion());
 
-						// convet to axis angle, devide with n, and convert back to
-						// quaternions
-						for (auto& q : avgQuaternionErrors) {
-							q.setQuaternionFromAngleAxis(
-									q.convertQuaternionToAngleAxis().scalarDivide(
-										double(n)));
-						}
+						data_ready = false; // reset so we can calibrate again
+						return firstPose;
+					}
 
-						// add the error back to the first sample
+					/**
+					 * The real thing: Markley's SVD quaternion average (the NASA one). Already in
+					 * the tree at UIMU/QuaternionAverage.h, and until now only reachable through the
+					 * external_average_pose node.
+					 *
+					 * That node existed because Eigen was believed to collide with SimTK. Checked
+					 * 2026-09-09: it does not. Both headers compile in one translation unit, and
+					 * CMakeLists.txt:180 ALREADY links Eigen3::Eigen into osrtRosUIMU. So this needs
+					 * no node, no sockets, and no build changes.
+					 *
+					 * Handles the q / -q sign ambiguity correctly (dominant eigenvector of the
+					 * outer-product sum). The angle-axis approach does not.
+					 *
+					 * Deliberately compiled but not called: swapping getFirstPose() for this is a
+					 * one-line change at IMUCalibrator.cpp:833 whenever someone wants it.
+					 */
+					virtual std::vector<SimTK::Quaternion> computeAvgStaticPoseSVD() {
+						std::unique_lock<std::mutex> lock(calibration_mtx);
+						while (!data_ready) { cv_calibration_done.wait(lock); }
+
+						const int n = initIMUDataTable.size();
+						const int m = initIMUDataTable[0].size();
+						ROS_INFO_STREAM("SVD: averaging " << n << " frames over " << m << " devices.");
+
+						std::vector<SimTK::Quaternion> avg;
+						avg.reserve(m);
 						for (int j = 0; j < m; ++j) {
-							// NOTE: requires `.getQuaternion()` function of the IMUData
-							// type.
-							const auto& q0 = initIMUDataTable[0][j].getQuaternion();
-							const auto& qe = avgQuaternionErrors[j];
-							avgQuaternions[j] = qe * q0;
+							std::vector<Eigen::Vector4f> samples;
+							samples.reserve(n);
+							for (int i = 0; i < n; ++i) {
+								const SimTK::Quaternion q = initIMUDataTable[i][j].getQuaternion();
+								samples.emplace_back(q[0], q[1], q[2], q[3]);
+							}
+							const Eigen::Vector4f a = quaternionAverage(samples);
+							avg.push_back(SimTK::Quaternion(a[0], a[1], a[2], a[3]));
 						}
 
-						data_ready = false; // seems weird, but we need to reset it so that we can calibrate again
-						return avgQuaternions;
+						data_ready = false;
+						return avg;
 					}
 					virtual void clearCalibration()  
 					{
