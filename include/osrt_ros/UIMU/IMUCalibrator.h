@@ -107,12 +107,12 @@ namespace OpenSimRT {
 			 * is that the IMUData type of the driver MUST have a member function
 			 * `getQuaternion()` to receive quaternion estimations for each IMU sensor.
 			 */
-			IMUCalibrator(const OpenSim::Model& otherModel,
+			IMUCalibrator(OpenSim::Model* otherModel,
 					const UIMUInputDriver* const driver,
 					const std::vector<std::string>& observationOrder)
 				// instantiate the DriverErasure object by forwarding the input
 				// driver in its contructor.
-				: tfListener(tfBuffer), model(*otherModel.clone()),
+				: tfListener(tfBuffer), model(otherModel),
 				impl(new DriverErasure(
 							std::forward<const UIMUInputDriver* const>(driver))) {
 					setup(observationOrder);
@@ -372,7 +372,7 @@ namespace OpenSimRT {
 			 */
 			void setup(const std::vector<std::string>& observationOrder);
 
-			OpenSim::Model model;
+			OpenSim::Model* model;
 			SimTK::State state;
 			std::unique_ptr<DriverErasure>
 				impl; // pointer to DriverErasureBase class

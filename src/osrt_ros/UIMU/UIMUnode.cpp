@@ -94,7 +94,7 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 				"comes exclusively from the imu_ref_ori TF, change that TF instead. "
 				"imu_direction_axis DOES still matter: it supplies the heading DOF, which "
 				"is not recoverable from the static pose and is folded into R_GoGi1.");
-		start_ik();
+		calibrate_ik();
 	}
 	else
 		ROS_WARN("IMU Ground Orientation reconfigure request warning: calibrator not yet defined.");
@@ -107,7 +107,7 @@ void UIMUnode::reconfigure_heading_callback(osrt_ros::headingConfig &config, uin
 	{
 		clb->baseHeadingAngle = config.base_imu_heading;
 		//I need to change the things that are related to the heading here!
-		start_ik();
+		calibrate_ik();
 
 	}
 	else
@@ -126,7 +126,7 @@ void UIMUnode::define_tasks()
 		for (auto some_marker_name:pointGetter->markerNames)
 			ROS_YE("AR positional marker name: "<<some_marker_name);
 
-		InverseKinematics::createMarkerTasksFromMarkerNames(model, pointGetter->markerNames, markerTasks,
+		InverseKinematics::createMarkerTasksFromMarkerNames(* model, pointGetter->markerNames, markerTasks,
 				markerObservationOrder);
 	}
 
@@ -135,7 +135,7 @@ void UIMUnode::define_tasks()
 	{
 		ROS_DEBUG_STREAM("Setting up imuTasks");
 		InverseKinematics::createIMUTasksFromObservationOrder(
-				model, imuObservationOrder, imuTasks);
+				*model, imuObservationOrder, imuTasks);
 	}
 
 	ROS_DEBUG_STREAM("Starting driver");
@@ -148,7 +148,7 @@ void UIMUnode::define_tasks()
 		ROS_INFO_STREAM("Using imu observation order: " << imuObservationOrderStr);
 	}
 }
-void UIMUnode::start_ik()
+void UIMUnode::calibrate_ik()
 {
 	chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
 
@@ -203,16 +203,16 @@ void UIMUnode::start_ik()
 	}
 	// initialize ik (lower constraint weight and accuracy -> faster tracking)
 	ROS_DEBUG_STREAM("Setting up IK");
-	ik = new InverseKinematics(model, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	ik = new InverseKinematics(model.get(), markerTasks, imuTasks, SimTK::Infinity, 1e-5);
 	qRawLogger = ik->initializeLogger();
 	initializeLoggers(loggerFileNameIK,&qRawLogger);
 
 	//TODO: publish correct ROS topics
 	output.labels = qRawLogger.getColumnLabels();
-	ROS_INFO_STREAM("Done with start_ik");
+	ROS_INFO_STREAM("Done with calibrate_ik");
 	chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
-	ROS_YE(bar << "start_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
+	ROS_YE(bar << "calibrate_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
 }
 
 SimTK::RowVector UIMUnode::fromVectorOfSimTKQuaternionsToARowVector(std::vector<SimTK::Quaternion> vv)
@@ -244,7 +244,7 @@ void UIMUnode::clearLogger(TimeSeriesTable &t) //TODO: move it somewhere nice. m
 	else
 		ROS_WARN_STREAM("couldnt clear logger table!");
 }
-void UIMUnode::doCalibrate()
+void UIMUnode::recordCalibrationPose()
 {
 	ROS_DEBUG_STREAM("clb samples");
 	clearLogger(imuCalibrationLogger);
@@ -257,9 +257,9 @@ void UIMUnode::doCalibrate()
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 {
 	ROS_INFO_STREAM("Calibration service called!");
-	doCalibrate();
+	recordCalibrationPose();
 	//I need to restart ik again as well
-	start_ik();
+	calibrate_ik();
 	return true;
 }
 void UIMUnode::onInit()
@@ -285,14 +285,14 @@ void UIMUnode::onInit()
 	//I want to start the service after we set the labels, otherwise it might reply with an empty message.
 	// setup model
 	ROS_DEBUG_STREAM("Setting up model.");
-	model = OpenSim::Model(modelFile);
-	OpenSimUtils::removeActuators(model);
+	model = std::make_unique<OpenSim::Model>(modelFile);
+	OpenSimUtils::removeActuators(*model);
 	if(publish_filtered)
 	{
 		//filter
 		ROS_DEBUG_STREAM("Setting up filter");
 		LowPassSmoothFilter::Parameters ikFilterParam;
-		ikFilterParam.numSignals = model.getNumCoordinates();
+		ikFilterParam.numSignals = model->getNumCoordinates();
 		ikFilterParam.memory = memory;
 		ikFilterParam.delay = delay;
 		ikFilterParam.cutoffFrequency = cutoffFreq;
@@ -302,7 +302,7 @@ void UIMUnode::onInit()
 		ikfilter = new LowPassSmoothFilter(ikFilterParam);
 		// initialize filtered loggers
 		ROS_DEBUG_STREAM("getting columnNames from model");
-		auto columnNames = OpenSimRT::OpenSimUtils::getCoordinateNamesInMultibodyTreeOrder(model);
+		auto columnNames = OpenSimRT::OpenSimUtils::getCoordinateNamesInMultibodyTreeOrder(*model);
 		string columnNamesStr = "";
 		for(auto cn:columnNames)
 		{
@@ -332,16 +332,16 @@ void UIMUnode::onInit()
 
 		// calibrator
 		ROS_DEBUG_STREAM("Setting up IMUCalibrator");
-		clb = new IMUCalibrator(model, driver, imuObservationOrder);
-	doCalibrate(); //Maybe i dont want to do this in the initialization
+		clb = new IMUCalibrator(model.get(), driver, imuObservationOrder);
+	recordCalibrationPose(); //Maybe i dont want to do this in the initialization
 	}
 
 
 
 	define_tasks();
 
-	ik = new InverseKinematics(model, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
-	//start_ik();
+	ik = new InverseKinematics(model.get(), markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	//calibrate_ik();
 	// mean delay
 	ROS_DEBUG_STREAM("onInit finished just fine.");
 }

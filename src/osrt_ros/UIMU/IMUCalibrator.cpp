@@ -100,8 +100,8 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 		calib_srv.push_back(this_srv);
 	}
 	// initialize system
-	state = model.initSystem();
-	model.realizePosition(state);
+	state = model->initSystem();
+	model->realizePosition(state);
 		sameHeader.frame_id = "opensim_frame";
 		sameHeader.stamp = ros::Time::now();
 
@@ -118,7 +118,7 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 	for (const auto& label : imuBodiesObservationOrder) {
 		const OpenSim::PhysicalFrame* frame = nullptr;
 		pub.push_back(nhandle.advertise<geometry_msgs::PoseArray>(label +"/imu_cal",1,true)); //latching topic
-		if ((frame = model.findComponent<OpenSim::PhysicalFrame>(label))) {
+		if ((frame = model->findComponent<OpenSim::PhysicalFrame>(label))) {
 			const OpenSim::Frame& theBaseFrame = frame->findBaseFrame();
 			const std::string baseName = theBaseFrame.getName();
 			imuBodiesInGround[baseName] = theBaseFrame.getTransformInGround(state); // R_GoB
@@ -153,8 +153,8 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 	// =====================================================================
 	{
 		std::vector<std::string> nonZeroDefaults;
-		for (int ci = 0; ci < model.getCoordinateSet().getSize(); ++ci) {
-			const OpenSim::Coordinate& c = model.getCoordinateSet().get(ci);
+		for (int ci = 0; ci < model->getCoordinateSet().getSize(); ++ci) {
+			const OpenSim::Coordinate& c = model->getCoordinateSet().get(ci);
 			const double dv = c.getDefaultValue();
 			if (std::fabs(dv) < 1e-9) continue;
 			const bool isRot =
@@ -179,15 +179,15 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 		// away from what calibration assumed. MOBL's groundthorax/r_y is exactly
 		// this; iiwa14 and raquegopal have nothing of the kind.
 		std::vector<std::string> groundRotations;
-		for (int ci = 0; ci < model.getCoordinateSet().getSize(); ++ci) {
-			const OpenSim::Coordinate& c = model.getCoordinateSet().get(ci);
+		for (int ci = 0; ci < model->getCoordinateSet().getSize(); ++ci) {
+			const OpenSim::Coordinate& c = model->getCoordinateSet().get(ci);
 			const double dv = c.getDefaultValue();
 			if (std::fabs(dv) < 1e-9) continue;
 			if (c.getMotionType() != OpenSim::Coordinate::MotionType::Rotational) continue;
 			try {
 				const OpenSim::Joint& jnt = c.getJoint();
 				const OpenSim::Frame& pbase = jnt.getParentFrame().findBaseFrame();
-				if (pbase.getName() != model.getGround().getName()) continue;
+				if (pbase.getName() != model->getGround().getName()) continue;
 				std::stringstream ss;
 				ss << c.getName() << " on joint [" << jnt.getName() << "] = "
 					<< dv * 180.0 / SimTK::Pi << " deg  (parent is GROUND)";
@@ -485,7 +485,7 @@ IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
 		ROS_INFO_STREAM("baseSegmentXheading with what i think is the vertical component set to zero::" << baseSegmentXheading);
 		// get frame of imu body
 		const PhysicalFrame* baseFrame = nullptr;
-		if (!(baseFrame = model.findComponent<PhysicalFrame>(baseImuName))) {
+		if (!(baseFrame = model->findComponent<PhysicalFrame>(baseImuName))) {
 			ROS_FATAL_STREAM("Could not find imu for base: " << baseImuName);
 			THROW_EXCEPTION(
 					"Frame of given body name does not exist in the model.");

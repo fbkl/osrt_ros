@@ -53,7 +53,7 @@
 #include <osrt_ros/headingConfig.h>
 #include "osrt_ros/events.h"
 #include "opensimrt_bridge/conversions/message_convs.h"
-
+#include <memory>
 #include "osrt_ros/UIMU/pointGetters.h"
 
 using namespace std;
@@ -94,13 +94,12 @@ class UIMUnode: Ros::CommonNode
 		//filter parameters
 		double cutoffFreq = 0.0;
 		int splineOrder = 3, memory = 0, delay = 0 ;
-		OpenSimRT::LowPassSmoothFilter * ikfilter;
 		std::vector<ros::Publisher> plottable_outputs;
 		//dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
 		//dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
-		OpenSim::Model model;
-
-		GetPoint* pointGetter;
+		std::unique_ptr<OpenSim::Model> model = nullptr;
+		GetPoint* pointGetter = nullptr;
+		OpenSimRT::LowPassSmoothFilter * ikfilter = nullptr;
 
 		void get_params();
 		void registerType(Object* muscleModel); //do I even need this?
@@ -109,11 +108,11 @@ class UIMUnode: Ros::CommonNode
 		vector<InverseKinematics::MarkerTask> markerTasks;
 		vector<InverseKinematics::IMUTask> imuTasks;
 		void define_tasks();
-		void start_ik();
+		void calibrate_ik();
 
 		SimTK::RowVector fromVectorOfSimTKQuaternionsToARowVector(std::vector<SimTK::Quaternion> vv);
 		void clearLogger(TimeSeriesTable &t); //TODO: move it somewhere nice. maybe make loggers a wrapper class
-		void doCalibrate();
+		void recordCalibrationPose();
 		bool calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 		void onInit();
 

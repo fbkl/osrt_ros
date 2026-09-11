@@ -307,7 +307,7 @@ class GetPointFromMarkers:public GetPoint
 		chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 		double dur_own_code = chrono::duration_cast<chrono::nanoseconds>(t2-t1).count();
 		double dur_between = chrono::duration_cast<chrono::nanoseconds>(t2-t0).count();
-		ROS_YE(bar << "time between calls duration in ns:"<<magenta<<dur_between<<"\nduration own call"<<dur_own_code<<bar<<"fps:"<<1000000000.0/dur_between<<"fps own:"<<1000000000.0/dur_own_code<<bar <<reset);
+		//ROS_YE(bar << "time between calls duration in ns:"<<magenta<<dur_between<<"\nduration own call"<<dur_own_code<<bar<<"fps:"<<1000000000.0/dur_between<<"fps own:"<<1000000000.0/dur_own_code<<bar <<reset);
 
 			t0 = t2;
 
