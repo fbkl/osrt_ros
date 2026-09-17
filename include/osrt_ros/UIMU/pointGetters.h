@@ -1,3 +1,4 @@
+#pragma once
 #include "XmlRpcException.h"
 #include "XmlRpcValue.h"
 #include "geometry_msgs/TransformStamped.h"
@@ -369,7 +370,5 @@ class GetPointFromMarkers:public GetPoint
 		return markerObservations;
 	}
 };
-
-
 
 

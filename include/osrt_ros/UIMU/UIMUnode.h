@@ -1,3 +1,4 @@
+#pragma once
 #include "XmlRpcException.h"
 #include "XmlRpcValue.h"
 #include "geometry_msgs/TransformStamped.h"
@@ -56,6 +57,7 @@
 #include <memory>
 #include "stupid_colors.h"
 #include "osrt_ros/UIMU/pointGetters.h"
+#include "osrt_ros/UIMU/pointCalibrator.h"
 #include <mutex>
 using namespace std;
 using namespace OpenSim;
@@ -87,6 +89,7 @@ class UIMUnode: Ros::CommonNode
 		UIMUInputDriver *driver = nullptr;
 		InverseKinematics * ik = nullptr;
 		IMUCalibrator * clb = nullptr;
+		PointCalibrator * pclb = nullptr;
 		std::mutex ik_mtx;
 		bool clb_is_ready =false;
 		bool usePositionMarkers = false;

@@ -206,7 +206,7 @@ void UIMUnode::calibrate_ik()
 	}
 	// initialize ik (lower constraint weight and accuracy -> faster tracking)
 	ROS_DEBUG_STREAM("Setting up IK");
-	delete(ik); 
+	delete(ik); ik= nullptr; // claude is telling me that if this throws, well, i want it to crash, but fine, we make it nice and deal with it, probably the mature way of coding 
 	ik = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
 	//claude doesnt like me when i initialize the logger here, he wants it on onInit. idk, 
 	qRawLogger = ik->initializeLogger(); // i still think i need to overwrite it though. if i am wrong the machine will complain :)
@@ -352,6 +352,13 @@ void UIMUnode::onInit()
 		clb = new IMUCalibrator(model.get(), driver, imuObservationOrder);
 	}
 
+	if (usePositionMarkers)
+
+	{
+		pclb = new PointCalibrator(model.get(),pointGetter);
+		
+
+	}
 	// there is something weird here, i think the record calibration pose should record the pointgetter stuff as well, but rn it isnt?
 
 	{
@@ -366,6 +373,9 @@ void UIMUnode::onInit()
 	initializeLoggers(loggerFileNameIK,&qRawLogger);
 	//delete(ik);
 	//calibrate_ik();
+	if (!useOrientationMarkers) {
+		ROS_WARN("we are not calibrating for points only yet, so we will run the 'calibration' automatically without any data! in the future we also want to calibrate this, so this warning should not be here for long");
+		calibrate_ik();}
 	// mean delay
 	ROS_DEBUG_STREAM("onInit finished just fine.");
 }
@@ -387,11 +397,18 @@ void UIMUnode::run() {
 		SimTK::Array_<SimTK::Rotation> transformedOris;
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
-			if (!ik) { ROS_WARN_THROTTLE(5, "not calibrated yet, call ~/calibrate");
+			bool have_ik;
+			{
+				std::lock_guard<std::mutex> it_wont_race_i_think_but_locking_is_safer(ik_mtx);
+				have_ik = ( ik!= nullptr);
+			}
+			if (!have_ik) { 
+				ROS_WARN_THROTTLE(5, "not calibrated yet, call ~/calibrate");
 				ros::spinOnce();
 				r->sleep(); 
-				continue; }
-
+				continue; 
+			}
+			
 			if (ij%runs_to_log == 0) {
 				ij = 0;
 			}
@@ -512,7 +529,7 @@ void UIMUnode::run() {
 			}
 
 			//ros::spinOnce();
-			if(true)
+			if(false) // this looks like it is free running, but it isn't. it is being gated by driver->getFrame() and we also have the pointGetter doing 2 reads to make sure we don't lose a single sample. 
 			{
 				r->sleep();
 				addEvent("afterrate"+std::to_string(ij),msg);
