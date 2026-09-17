@@ -82,6 +82,7 @@ void UIMUnode::registerType(Object* muscleModel) //do I even need this?
 
 }
 void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level){
+	std::lock_guard<std::mutex> lock(ik_mtx);
 	ROS_INFO("IMU Ground Orientation reconfigure request %s, (%f, %f, %f)", config.imu_direction_axis_param.c_str(), config.imu_ground_rotation_x, config.imu_ground_rotation_y,config.imu_ground_rotation_z);
 
 	if (clb_is_ready)
@@ -101,6 +102,7 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 
 }
 void UIMUnode::reconfigure_heading_callback(osrt_ros::headingConfig &config, uint32_t level){
+	std::lock_guard<std::mutex> lock(ik_mtx);
 	ROS_INFO("Heading Reconfigure request base IMU heading angle: %f", config.base_imu_heading);
 
 	if (clb_is_ready)
@@ -152,6 +154,7 @@ void UIMUnode::calibrate_ik()
 {
 	chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
 
+
 	// NOTE: this whole block used to appear twice, once unconditionally and once
 	// inside `if (useOrientationMarkers)`. It is idempotent, so the duplicate was
 	// only wasted work -- except that both copies published a TF named
@@ -182,7 +185,7 @@ void UIMUnode::calibrate_ik()
 		// therefore HAS to come from outside, and `imu_direction_axis` is that
 		// external input: it asserts which principal axis of the base sensor points
 		// along the subject's anterior direction.
-		clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis);
+		clb->computeHeadingRotation(imuBaseBody, imuDirectionAxis, actualModelState);
 
 		// Fold the per-session yaw into the ground rotation, ONCE, before calibrating.
 		//
@@ -203,9 +206,10 @@ void UIMUnode::calibrate_ik()
 	}
 	// initialize ik (lower constraint weight and accuracy -> faster tracking)
 	ROS_DEBUG_STREAM("Setting up IK");
-	ik = new InverseKinematics(model.get(), markerTasks, imuTasks, SimTK::Infinity, 1e-5);
-	qRawLogger = ik->initializeLogger();
-	initializeLoggers(loggerFileNameIK,&qRawLogger);
+	delete(ik); 
+	ik = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	//claude doesnt like me when i initialize the logger here, he wants it on onInit. idk, 
+	qRawLogger = ik->initializeLogger(); // i still think i need to overwrite it though. if i am wrong the machine will complain :)
 
 	//TODO: publish correct ROS topics
 	output.labels = qRawLogger.getColumnLabels();
@@ -246,16 +250,30 @@ void UIMUnode::clearLogger(TimeSeriesTable &t) //TODO: move it somewhere nice. m
 }
 void UIMUnode::recordCalibrationPose()
 {
-	ROS_DEBUG_STREAM("clb samples");
-	clearLogger(imuCalibrationLogger);
-	ROS_INFO_STREAM("After clearing table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
-	clb->recordNumOfSamples(10); //TODO:PARAM!
-	clb_is_ready = true;
-	imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions)); //if this is the time, maybe we want to add the calibration time here as well. Also, maybe we don't want to clear the calibration, or clear only after saving? TODO: think about this
-	ROS_INFO_STREAM("After appending clb samples to table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
+	ROS_INFO_STREAM("Recording calibration pose. Assuming you are posing the subject in the default model position!");
+	//so we are going to say here, "hey buddy, the model is in this position and we use this for calibration" and then we pass this state around to anyone who needs it
+	actualModelState = model->initSystem();
+	model->realizePosition(actualModelState);
+
+	if (useOrientationMarkers)
+	{
+		ROS_DEBUG_STREAM("clb samples");
+		clb->setup(actualModelState);
+		clearLogger(imuCalibrationLogger);
+		ROS_INFO_STREAM("After clearing table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
+		clb->recordNumOfSamples(10); //TODO:PARAM!
+		clb_is_ready = true;
+		imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions)); //if this is the time, maybe we want to add the calibration time here as well. Also, maybe we don't want to clear the calibration, or clear only after saving? TODO: think about this
+		ROS_INFO_STREAM("After appending clb samples to table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
+	}
+	if (usePositionMarkers)
+	{
+		ROS_WARN("Calibration for Position Markers Not implemented yet!");
+	}
 }	
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 {
+	std::lock_guard<std::mutex> lock(ik_mtx);
 	ROS_INFO_STREAM("Calibration service called!");
 	recordCalibrationPose();
 	//I need to restart ik again as well
@@ -263,7 +281,6 @@ bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Re
 	return true;
 }
 void UIMUnode::onInit()
-
 {
 	get_params();
 	//f = boost::bind(&UIMUnode::reconfigure_callback, this, _1,_2);
@@ -319,9 +336,9 @@ void UIMUnode::onInit()
 
 	}
 
+	calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
 
 	if (useOrientationMarkers){
-		calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
 		ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix: [" << tf_frame_prefix << "] and rate: [" << rate <<"]" );
 		driver = new UIMUInputDriver(imuObservationOrder,tf_frame_prefix,rate); //uses tf server
 		driver->startListening();
@@ -333,14 +350,21 @@ void UIMUnode::onInit()
 		// calibrator
 		ROS_DEBUG_STREAM("Setting up IMUCalibrator");
 		clb = new IMUCalibrator(model.get(), driver, imuObservationOrder);
-	recordCalibrationPose(); //Maybe i dont want to do this in the initialization
 	}
 
+	// there is something weird here, i think the record calibration pose should record the pointgetter stuff as well, but rn it isnt?
 
+	{
+		std::lock_guard<std::mutex> lock(ik_mtx);
+		recordCalibrationPose(); //Maybe i dont want to do this in the initialization
+	}
 
 	define_tasks();
 
-	ik = new InverseKinematics(model.get(), markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	//ik = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	//qRawLogger = ik->initializeLogger();
+	initializeLoggers(loggerFileNameIK,&qRawLogger);
+	//delete(ik);
 	//calibrate_ik();
 	// mean delay
 	ROS_DEBUG_STREAM("onInit finished just fine.");
@@ -354,22 +378,27 @@ void UIMUnode::run() {
 	int runs_to_log= 4;
 	auto faster_rate = ros::Rate(rate*2);
 	try { // main loop
-			opensimrt_msgs::CommonTimed msg;
-			std_msgs::Header h;
-			h.frame_id = "subject";
-			TransObs markerObservations;
-			std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
-			double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
-			SimTK::Array_<SimTK::Rotation> transformedOris;
+		opensimrt_msgs::CommonTimed msg;
+		std_msgs::Header h;
+		h.frame_id = "subject";
+		TransObs markerObservations;
+		std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
+		double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
+		SimTK::Array_<SimTK::Rotation> transformedOris;
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
-                       if (ij%runs_to_log == 0) {
-                               ij = 0;
-                       }
+			if (!ik) { ROS_WARN_THROTTLE(5, "not calibrated yet, call ~/calibrate");
+				ros::spinOnce();
+				r->sleep(); 
+				continue; }
 
-                       addEvent("run_start"+std::to_string(ij),msg);
-			
-			
+			if (ij%runs_to_log == 0) {
+				ij = 0;
+			}
+
+			addEvent("run_start"+std::to_string(ij),msg);
+
+
 			h.stamp = ros::Time::now();
 			msg.header = h;
 
@@ -395,13 +424,13 @@ void UIMUnode::run() {
 					this_time = pointGetter->last_time;
 				}
 				// so maybe we want to have also another list with the marker qualities
-				
+
 
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
 				{
-				//	auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
-//ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
-			
+					//	auto someIx = ik->markerAssemblyConditions->getMarkerIx(pointGetter->markerNames[i]);
+					//ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
+
 				}
 			}
 			//numFrames++;
@@ -411,8 +440,15 @@ void UIMUnode::run() {
 			//for(int iii = 0 ; iii< markerObservations.first.size();iii++)
 			//	ROS_INFO_STREAM(markerObservations.first[iii]);
 			addEvent("got_data"+std::to_string(ij),msg);
-			auto pose = ik->solve(
-					{this_time, markerObservations.first, transformedOris });
+
+			//we need to lock this because ik may be calibrating, and if it is deleted when it tries to run it will crash.
+
+			InverseKinematics::Output pose;
+			{
+				std::lock_guard<std::mutex> lock(ik_mtx);
+				pose = ik->solve(
+						{this_time, markerObservations.first, transformedOris });
+			}
 			last_time = this_time;
 			addEvent("ik"+std::to_string(ij),msg);
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
@@ -420,18 +456,18 @@ void UIMUnode::run() {
 			//msg.data.push_back(pose.t);
 			msg.data = std::vector<double>(); //TODO: we should change this in Osb::update_pose, i think 
 			Osb::update_pose(msg, pose.t, pose.q); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
-			
+
 			/*
-			if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
-				for (const auto& joint_angle:pose.q)
-				{
-					ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
-					std_msgs::Float64 j_msg;
-					j_msg.data = joint_angle*180/3.14159265;
-					plottable_outputs[i].publish(j_msg);
-				}
-			else ROS_ERROR_ONCE("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
-*/
+			   if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
+			   for (const auto& joint_angle:pose.q)
+			   {
+			   ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
+			   std_msgs::Float64 j_msg;
+			   j_msg.data = joint_angle*180/3.14159265;
+			   plottable_outputs[i].publish(j_msg);
+			   }
+			   else ROS_ERROR_ONCE("TODO: you should have the labels, we are creating them, the initialization order is wrong, please create the topics after reading the model");
+			   */
 			pub.publish(msg); 
 			addEvent("afternormal_pub"+std::to_string(ij),msg);
 			if(publish_filtered)
@@ -444,9 +480,9 @@ void UIMUnode::run() {
 				if (!ikFiltered.isValid) {
 					ROS_DEBUG_STREAM("filter results are NOT valid");
 					continue; }
-			        ROS_DEBUG_STREAM("Filter results are valid");
-			        addEvent("afterfilter"+std::to_string(ij),msg);
-				   
+				ROS_DEBUG_STREAM("Filter results are valid");
+				addEvent("afterfilter"+std::to_string(ij),msg);
+
 				opensimrt_msgs::PosVelAccTimed msg_filtered = Osb::get_as_ik_filtered_msg(h, ikFiltered.t, q, qDot, qDDot);
 				pub_filtered.publish(msg_filtered); // not working
 				addEvent("afterfilter_pub"+std::to_string(ij),msg);
@@ -467,23 +503,23 @@ void UIMUnode::run() {
 					imuLogger.appendRow(pose.t, driver->frame);//
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
-                        if (ij%runs_to_log == 0) {
-                                msg.events = opensimrt_msgs::Events();
-                                keep_running = ros::ok();
-                                addEvent("afterrosok"+std::to_string(ij),msg);
-                                ros::spinOnce();
-                                addEvent("afterspinonce"+std::to_string(ij),msg);
-                        }
+			if (ij%runs_to_log == 0) {
+				msg.events = opensimrt_msgs::Events();
+				keep_running = ros::ok();
+				addEvent("afterrosok"+std::to_string(ij),msg);
+				ros::spinOnce();
+				addEvent("afterspinonce"+std::to_string(ij),msg);
+			}
 
 			//ros::spinOnce();
-			if(false)
+			if(true)
 			{
-			r->sleep();
-                        addEvent("afterrate"+std::to_string(ij),msg);
+				r->sleep();
+				addEvent("afterrate"+std::to_string(ij),msg);
 			}
 			{
-			//r->sleep();
-                        addEvent("afternorate"+std::to_string(ij),msg);
+				//r->sleep();
+				addEvent("afternorate"+std::to_string(ij),msg);
 
 
 			}

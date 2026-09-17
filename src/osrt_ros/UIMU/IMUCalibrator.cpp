@@ -30,7 +30,6 @@
 #include "ros/time.h"
 #include "std_srvs/Empty.h"
 #include "std_srvs/EmptyRequest.h"
-#include "osrt_ros/Float.h"
 #include "tf/exceptions.h"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
@@ -41,7 +40,6 @@
 #include <cmath>
 #include <sstream>
 #include <ros/ros.h>
-#include <geometry_msgs/PoseArray.h>
 #include <thread>
 #include <vector>
 
@@ -50,13 +48,6 @@ using namespace OpenSim;
 ;
 using namespace std;
 
-const std::string red("\033[0;31m");
-const std::string green("\033[1;32m");
-const std::string yellow("\033[1;33m");
-const std::string cyan("\033[0;36m");
-const std::string magenta("\033[0;35m");
-const std::string reset("\033[0m");
-#define ROS_YE(x) ROS_INFO_STREAM( yellow << x << reset)
 
 inline constexpr auto hash_djb2a(const std::string_view sv) {
 	unsigned long hash{ 5381 };
@@ -72,36 +63,22 @@ inline constexpr auto operator"" _sh(const char *str, size_t len) {
 
 
 
-void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
+void IMUCalibrator::setup(const SimTK::State& state) {
 	//	ros::NodeHandle n("~");
-	nhandle = ros::NodeHandle("~");
-	auto ghandle = ros::NodeHandle();
-	nhandle.param<string>("debug_reference_frame",debug_reference_frame,"map");
-	std::string tf_prefix;
-	nhandle.param<string>("tf_prefix",tf_prefix,"");
-
-	ext_heading_srv = ghandle.serviceClient<osrt_ros::Float>("calibrate_heading", true);
 
 	R_heading = SimTK::Rotation();
 	//why?
 	R_GoGi1 = SimTK::Rotation();
 
-	// copy observation order list
-	imuBodiesObservationOrder = std::vector<std::string>(
-			observationOrder.begin(), observationOrder.end());
+	// copy observation order list // we do this when we create the thing, so it shouldnt be necessary here
+	//imuBodiesObservationOrder = std::vector<std::string>(
+	//		observationOrder.begin(), observationOrder.end());
 
-	for (auto imu_name:imuBodiesObservationOrder) 
-	{
-		std::string calib_serv_name =tf_prefix+imu_name+"/pose_average/calibrate_pose"; 
-		ROS_YE("calibration service name:"<< calib_serv_name);
-		autosrv this_srv;
-		this_srv.imu = imu_name;
-		this_srv.calib_client = ghandle.serviceClient<std_srvs::Empty>(calib_serv_name, true);
-		calib_srv.push_back(this_srv);
-	}
+	
+	// LOL, absolutely not. we need to know what the state is already.
 	// initialize system
-	state = model->initSystem();
-	model->realizePosition(state);
+	//state = model->initSystem();
+	//model->realizePosition(state);
 		sameHeader.frame_id = "opensim_frame";
 		sameHeader.stamp = ros::Time::now();
 
@@ -117,7 +94,6 @@ void IMUCalibrator::setup(const std::vector<std::string>& observationOrder) {
 	// transform -- which is exactly the bug we are removing.
 	for (const auto& label : imuBodiesObservationOrder) {
 		const OpenSim::PhysicalFrame* frame = nullptr;
-		pub.push_back(nhandle.advertise<geometry_msgs::PoseArray>(label +"/imu_cal",1,true)); //latching topic
 		if ((frame = model->findComponent<OpenSim::PhysicalFrame>(label))) {
 			const OpenSim::Frame& theBaseFrame = frame->findBaseFrame();
 			const std::string baseName = theBaseFrame.getName();
@@ -337,7 +313,7 @@ SimTK::Rotation IMUCalibrator::setGroundOrientationFromTF(const std::string& tfn
  */
 SimTK::Rotation
 IMUCalibrator::computeHeadingRotation(const std::string& baseImuName,
-		const std::string& imuDirectionAxis) {
+		const std::string& imuDirectionAxis, const SimTK::State& state) {
 	bool negate = false;
 
 		geometry_msgs::TransformStamped some_tf;

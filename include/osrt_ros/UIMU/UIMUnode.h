@@ -54,8 +54,9 @@
 #include "osrt_ros/events.h"
 #include "opensimrt_bridge/conversions/message_convs.h"
 #include <memory>
+#include "stupid_colors.h"
 #include "osrt_ros/UIMU/pointGetters.h"
-
+#include <mutex>
 using namespace std;
 using namespace OpenSim;
 using namespace OpenSimRT;
@@ -86,6 +87,7 @@ class UIMUnode: Ros::CommonNode
 		UIMUInputDriver *driver = nullptr;
 		InverseKinematics * ik = nullptr;
 		IMUCalibrator * clb = nullptr;
+		std::mutex ik_mtx;
 		bool clb_is_ready =false;
 		bool usePositionMarkers = false;
 		bool useOrientationMarkers = true;
@@ -119,6 +121,7 @@ class UIMUnode: Ros::CommonNode
 		double last_time = -1.1;
 		void run();
 
+		SimTK::State actualModelState; // we have the state belonging to the UIMU node now
 
 };
 

@@ -40,9 +40,11 @@
 #include <string_view>
 #include <type_traits>
 #include <tf2_ros/transform_broadcaster.h>
-
+#include <stupid_colors.h>
 #include <ros/ros.h>
 #include <vector>
+#include "osrt_ros/Float.h"
+#include <geometry_msgs/PoseArray.h>
 namespace OpenSimRT {
 
 	class autosrv
@@ -79,6 +81,7 @@ namespace OpenSimRT {
 	 */
 	class  IMUCalibrator {
 		public:
+			void setup(const SimTK::State& state);
 			std::vector<SimTK::Quaternion> staticPoseQuaternions; // static pose data
 			tf::TransformBroadcaster tb;
 			tf2_ros::Buffer tfBuffer;
@@ -113,10 +116,33 @@ namespace OpenSimRT {
 				// instantiate the DriverErasure object by forwarding the input
 				// driver in its contructor.
 				: tfListener(tfBuffer), model(otherModel),
-				impl(new DriverErasure(
-							std::forward<const UIMUInputDriver* const>(driver))) {
-					setup(observationOrder);
-				}
+				imuBodiesObservationOrder(observationOrder),
+				impl(new DriverErasure(std::forward<const UIMUInputDriver* const>(driver))) 
+		{
+			//setup should be run when we are about to calibrate, not when we create the object
+			nhandle = ros::NodeHandle("~");
+			auto ghandle = ros::NodeHandle();
+			nhandle.param<std::string>("debug_reference_frame",debug_reference_frame,"map");
+			std::string tf_prefix;
+			nhandle.param<std::string>("tf_prefix",tf_prefix,"");
+
+			// are are sure we want to keep this? reconsider
+			ext_heading_srv = ghandle.serviceClient<osrt_ros::Float>("calibrate_heading", true);
+
+			for (auto imu_name:imuBodiesObservationOrder) 
+			{
+				std::string calib_serv_name =tf_prefix+imu_name+"/pose_average/calibrate_pose"; 
+				ROS_YE("calibration service name:"<< calib_serv_name);
+				autosrv this_srv;
+				this_srv.imu = imu_name;
+				this_srv.calib_client = ghandle.serviceClient<std_srvs::Empty>(calib_serv_name, true);
+				calib_srv.push_back(this_srv);
+			}
+			for (const auto& label : imuBodiesObservationOrder) {
+				pub.push_back(nhandle.advertise<geometry_msgs::PoseArray>(label +"/imu_cal",1,true)); //latching topic
+			}
+
+		}
 
 			SimTK::Rotation setGroundOrientationFromTF(const std::string& tfname);
 			/**
@@ -132,7 +158,8 @@ namespace OpenSimRT {
 			 * measurements acquired during the static phase.
 			 */
 			SimTK::Rotation computeHeadingRotation(const std::string& baseImuName,
-					const std::string& imuDirectionAxis);
+					const std::string& imuDirectionAxis, 
+					const SimTK::State& state);
 			/**
 			 * Calibrate the IK IMUTasks prior the construction of the IK module.
 			 */
@@ -192,8 +219,8 @@ namespace OpenSimRT {
 			SimTK::Rotation R_heading;
 
 			void publishTransform(const std::string name, const SimTK::Transform X_GB, const std_msgs::Header& header);
-    			std_msgs::Header sameHeader;
-		
+			std_msgs::Header sameHeader;
+
 
 		private:
 			bool externalAveragingMethod = false;
@@ -235,10 +262,10 @@ namespace OpenSimRT {
 							std::cout << "Recording Static Pose..." << std::endl;
 							const auto start = std::chrono::steady_clock::now();
 							while (std::chrono::duration_cast<std::chrono::seconds>(
-									std::chrono::steady_clock::now() - start)
-								.count() < timeout) {
-							// get frame measurements. `getData()` is common to all input
-							// drivers
+										std::chrono::steady_clock::now() - start)
+									.count() < timeout) {
+								// get frame measurements. `getData()` is common to all input
+								// drivers
 								initIMUDataTable.push_back(m_driver->getData());
 							}
 							data_ready = true;
@@ -255,7 +282,7 @@ namespace OpenSimRT {
 							while (i < numSamples) {
 								// get frame measurements. `getData()` is common to all input
 								// drivers
-								
+
 								//this works, no need for such verbosity anymore. also, why not use ros logs?
 								std::cout << "am i stuck here?" << std::endl;
 								std::vector<UIMUData> aa = m_driver->getData();
@@ -301,13 +328,13 @@ namespace OpenSimRT {
 						const int m = initIMUDataTable[0].size(); // num of imu devices
 
 						ROS_ERROR_STREAM(
-							"\n*****************************************************************\n"
-							"* getFirstPose(): recorded " << n << " frames and is USING EXACTLY ONE.\n"
-							"* This is NOT an average. The other " << (n > 0 ? n - 1 : 0) << " frames are thrown away.\n"
-							"* Fine while the subject holds still. NOT fine on the kuka, or on\n"
-							"* any rig where the static pose is noisy.\n"
-							"* The fix is written and tested: call computeAvgStaticPoseSVD().\n"
-							"*****************************************************************");
+								"\n*****************************************************************\n"
+								"* getFirstPose(): recorded " << n << " frames and is USING EXACTLY ONE.\n"
+								"* This is NOT an average. The other " << (n > 0 ? n - 1 : 0) << " frames are thrown away.\n"
+								"* Fine while the subject holds still. NOT fine on the kuka, or on\n"
+								"* any rig where the static pose is noisy.\n"
+								"* The fix is written and tested: call computeAvgStaticPoseSVD().\n"
+								"*****************************************************************");
 
 						std::vector<SimTK::Quaternion> firstPose;
 						firstPose.reserve(m);
@@ -370,10 +397,9 @@ namespace OpenSimRT {
 			/**
 			 * Supplamentary method used in the IMUCalibrator constructor.
 			 */
-			void setup(const std::vector<std::string>& observationOrder);
 
 			OpenSim::Model* model;
-			SimTK::State state;
+			//			SimTK::State state; // we are changing this. a calibrator does not know what the model state is. it needs to ask!
 			std::unique_ptr<DriverErasure>
 				impl; // pointer to DriverErasureBase class
 			std::map<std::string, SimTK::Transform> imuBodiesInGround; // R_GB per body
