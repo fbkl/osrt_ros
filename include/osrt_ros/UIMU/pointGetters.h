@@ -94,7 +94,12 @@ class GetPoint
 		XmlRpc::XmlRpcValue markerList;
 		std::vector<MyMarker> mmList;
 		double last_time{0.0};
+		double this_time{-1.0};
 
+
+		
+
+		ros::Rate* faster_rate = nullptr;
 		GetPoint() 
 		{
 
@@ -153,6 +158,30 @@ class GetPoint
 
 			ROS_ERROR("abstract implementation shouldn't be used, will return empty observations!!!");
 			return markerObservations;
+		}
+		
+		// Blocking version of get_translations that hopefully gets you new data all the time
+		TransObs get_new_data()
+		{
+			auto tt = get_translations();
+			this_time = last_time;
+			if (!faster_rate) {
+				ROS_ERROR("get_new_data is a synchronous acquisition method, you need to setup the reading rate before using it!");
+				return tt;
+			}
+			int tries = 10;
+			while (this_time >= last_time)
+			{
+				ros::spinOnce();
+				faster_rate->sleep();
+				tt = get_translations();
+				tries--;
+				if (tries<0) {
+					ROS_ERROR("tried getting data quite a few times, didn't succeed, you may want to check erm, things");
+					break;
+				}
+			}
+			return tt;
 		}
 };
 class GetPointFromSomeTF: public GetPoint // to make this a threaded implementation we need also do run a rated loop here, not going to do that yet, but if you want fast AR, you probably should try it.
@@ -221,13 +250,15 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 
 		SimTK::Array_<SimTK::Vec3> actualObservations;
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
+		// time(0) is the last time, so not exactly what you want if you are thinking the loop takes time, whatever, その時機は時機です. wait, this a really funny double entendre...
+		auto query_time = ros::Time(0); // we probably want to ask for the same time, even though the loop may take some time, right?
 		for (const auto& [this_marker_name, this_marker_tf] : markerDefList)
 		{
 			SimTK::Vec3 v;
 			try{
 				geometry_msgs::TransformStamped transform;
 				//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
-				transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+				transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, query_time, ros::Duration(tf_timeout) ); //
 				//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 				latest_marker_tfs[this_marker_tf] = transform;
 				last_time = transform.header.stamp.toSec();
@@ -261,20 +292,15 @@ class GetPointFromMarkers:public GetPoint
 
 	chrono::high_resolution_clock::time_point t0 ;
 	double multiplier=0.001;
-	void callback(const vicon_bridge::MarkersPtr& msg)
+
+	void _g()
 	{
-		chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
-		std::lock_guard<std::mutex> lock(*mtx_);
-		//not in the right order, we need a freaking map, right?	
-		for (const auto& marker:msg->markers)
-		{
-			marker_map[marker.marker_name] = marker;
-		}
-		last_time = msg->header.stamp.toSec();
+
 		
 		SimTK::Array_<SimTK::Vec3> actualObservations;
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 
+		auto missing_marker = SimTK::Vec3(SimTK::NaN);
 		//TODO:REPLACE
 		for (const auto& this_marker_name:markerNames)
 			//			for (const auto& [this_marker_name, this_Marker] : marker_map)
@@ -290,20 +316,38 @@ class GetPointFromMarkers:public GetPoint
 			v.set(2, this_Marker.translation.z*multiplier);
 			// since the name order is fixed, this order should also be fixed, so it is okay
 			
-			actualObservations.push_back(v);
-			accuracyOfObservations.push_back(this_Marker.occluded ? NAN : 1.0); // according to the docs from SimTK, this is what we want
+			if (this_Marker.occluded)
+				actualObservations.push_back(missing_marker);
+			else
+				actualObservations.push_back(v);
+
+			accuracyOfObservations.push_back(this_Marker.occluded ? NAN : 1.0); // according to claude this is not what simtk wants at all :D
 
 		}
 		markerObservations.first = actualObservations;
 		markerObservations.second = accuracyOfObservations;
+
+	}
+
+	void callback(const vicon_bridge::MarkersPtr& msg)
+	{
+		chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
+		std::lock_guard<std::mutex> lock(*mtx_);
+		//not in the right order, we need a freaking map, right?	
+		for (const auto& marker:msg->markers)
+		{
+			marker_map[marker.marker_name] = marker;
+		}
+		last_time = msg->header.stamp.toSec();
 		
+		_g();
 		chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 		double dur_own_code = chrono::duration_cast<chrono::nanoseconds>(t2-t1).count();
 		double dur_between = chrono::duration_cast<chrono::nanoseconds>(t2-t0).count();
 		//ROS_YE(bar << "time between calls duration in ns:"<<magenta<<dur_between<<"\nduration own call"<<dur_own_code<<bar<<"fps:"<<1000000000.0/dur_between<<"fps own:"<<1000000000.0/dur_own_code<<bar <<reset);
 
 			t0 = t2;
-
+		
 	}
 	public:
 
@@ -338,29 +382,7 @@ class GetPointFromMarkers:public GetPoint
 		}
 		ROS_INFO("AR: Finished setting up vicon markers");
 		
-		SimTK::Array_<SimTK::Vec3> actualObservations;
-		SimTK::Array_<SimTK::Real> accuracyOfObservations;
-		for (const auto& this_marker_name:markerNames)
-			//			for (const auto& [this_marker_name, this_Marker] : marker_map)
-		{
-			SimTK::Vec3 v;
-
-			// now we find the latest marker in the unordered map
-			const auto& this_Marker = marker_map[this_marker_name];
-
-			//if you are in a hurry just hard code the transform here because we just want it to work now.
-			v.set(0, this_Marker.translation.x*multiplier);
-			v.set(1, this_Marker.translation.y*multiplier);
-			v.set(2, this_Marker.translation.z*multiplier);
-			// since the name order is fixed, this order should also be fixed, so it is okay
-			
-			actualObservations.push_back(v);
-			accuracyOfObservations.push_back(this_Marker.occluded ? NAN : 1.0); // according to the docs from SimTK, this is what we want
-
-		}
-		markerObservations.first = actualObservations;
-		markerObservations.second = accuracyOfObservations;
-
+		_g();
 		marker_sub = nh.subscribe("/vicon/markers", 1,&GetPointFromMarkers::callback, this,ros::TransportHints().tcpNoDelay());
 	}
 	TransObs get_translations() override

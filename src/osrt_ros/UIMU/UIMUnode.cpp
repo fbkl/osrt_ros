@@ -82,7 +82,11 @@ void UIMUnode::registerType(Object* muscleModel) //do I even need this?
 
 }
 void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level){
-	std::lock_guard<std::mutex> lock(ik_mtx);
+
+	std::unique_lock<std::mutex> lock(ik_mtx, std::try_to_lock);
+	if (!lock.owns_lock()) { ROS_WARN("busy calibrating, or doing something else that takes a long time, ignored"); return; }
+
+
 	ROS_INFO("IMU Ground Orientation reconfigure request %s, (%f, %f, %f)", config.imu_direction_axis_param.c_str(), config.imu_ground_rotation_x, config.imu_ground_rotation_y,config.imu_ground_rotation_z);
 
 	if (clb_is_ready)
@@ -102,7 +106,11 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 
 }
 void UIMUnode::reconfigure_heading_callback(osrt_ros::headingConfig &config, uint32_t level){
-	std::lock_guard<std::mutex> lock(ik_mtx);
+	
+	std::unique_lock<std::mutex> lock(ik_mtx, std::try_to_lock);
+	if (!lock.owns_lock()) { ROS_WARN("busy calibrating, or doing something else that takes a long time, ignored"); return; }
+
+	
 	ROS_INFO("Heading Reconfigure request base IMU heading angle: %f", config.base_imu_heading);
 
 	if (clb_is_ready)
@@ -204,6 +212,38 @@ void UIMUnode::calibrate_ik()
 
 		clb->calibrateIMUTasks(imuTasks);
 	}
+
+	if (usePositionMarkers)
+	{
+		// here we need to consume mt, calculate the position it should be, vs what it is, and then update the model 
+		ROS_WARN("positional markers calibration is wip,,, is it even running?");
+
+		pclb->computeAvgStaticPose();
+		//model.set() = pclb->model;
+		// i used a make_unique, i think, so it should work by default
+
+		for (int32_t i = 0; i < pointGetter->markerList.size(); ++i) 
+		{
+			SimTK::Vec3 p_G = pclb->mt[i];
+			std::string markername = pointGetter->markerNames[i];
+			ROS_INFO_STREAM("marker"<< markername <<" pos we measured: " << p_G);
+			OpenSim::Marker& opensimMarker = model->updMarkerSet().get(markername); 
+			ROS_INFO_STREAM("marker"<< markername <<" pos it had before: " << opensimMarker.get_location());
+			//magically sets the marker is this enough?
+			auto p_F = model->getGround().findStationLocationInAnotherFrame(actualModelState, p_G, opensimMarker.getParentFrame());
+			
+			ROS_INFO_STREAM("marker"<< markername <<" pos it will have now: " << p_F);
+
+			opensimMarker.set_location(p_F);
+		}
+		ROS_WARN("positional markers calibration is wip,,, we sorta finished bro!");
+		// this is the place, this is the time. the model which is unique needs to be initialized, and it was to be here and it has to be now!
+		actualModelState = model->initSystem();
+		model->realizePosition(actualModelState);
+		// is this fine? i have no clue, claude says so. i will keep this comment here because suspish
+	}
+
+
 	// initialize ik (lower constraint weight and accuracy -> faster tracking)
 	ROS_DEBUG_STREAM("Setting up IK");
 	delete(ik); ik= nullptr; // claude is telling me that if this throws, well, i want it to crash, but fine, we make it nice and deal with it, probably the mature way of coding 
@@ -268,13 +308,19 @@ void UIMUnode::recordCalibrationPose()
 	}
 	if (usePositionMarkers)
 	{
-		ROS_WARN("Calibration for Position Markers Not implemented yet!");
+		pclb->calibSamples.clear();
+		pclb->recordNumOfSamples(10);
+		// erm some logging
+		ROS_WARN("Calibration for Position Markers is not yet logging!");
+		
 	}
 }	
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 {
-	std::lock_guard<std::mutex> lock(ik_mtx);
 	ROS_INFO_STREAM("Calibration service called!");
+	std::unique_lock<std::mutex> lock(ik_mtx, std::try_to_lock);
+	if (!lock.owns_lock()) { ROS_WARN("busy calibrating, or doing something else that takes a long time, ignored"); return false; }
+
 	recordCalibrationPose();
 	//I need to restart ik again as well
 	calibrate_ik();
@@ -352,18 +398,16 @@ void UIMUnode::onInit()
 		clb = new IMUCalibrator(model.get(), driver, imuObservationOrder);
 	}
 
-	if (usePositionMarkers)
-
+	if (usePositionMarkers && pointGetter)
 	{
 		pclb = new PointCalibrator(model.get(),pointGetter);
-		
+		pointGetter->faster_rate = new ros::Rate(rate*2);
 
 	}
-	// there is something weird here, i think the record calibration pose should record the pointgetter stuff as well, but rn it isnt?
 
 	{
 		std::lock_guard<std::mutex> lock(ik_mtx);
-		recordCalibrationPose(); //Maybe i dont want to do this in the initialization
+		recordCalibrationPose(); //Maybe i dont want to do this in the initialization it seems stupid
 	}
 
 	define_tasks();
@@ -386,7 +430,6 @@ void UIMUnode::run() {
 	bool keep_running=true;
 	int ij = 0;
 	int runs_to_log= 4;
-	auto faster_rate = ros::Rate(rate*2);
 	try { // main loop
 		opensimrt_msgs::CommonTimed msg;
 		std_msgs::Header h;
@@ -431,17 +474,9 @@ void UIMUnode::run() {
 			if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
 			{
 				ROS_DEBUG_STREAM("Getting marker frame:");
-				markerObservations = pointGetter->get_translations();
-				this_time = pointGetter->last_time;
-				while (last_time == this_time)
-				{
-					ros::spinOnce();
-					faster_rate.sleep();
-					markerObservations = pointGetter->get_translations();
-					this_time = pointGetter->last_time;
-				}
+				markerObservations = pointGetter->get_new_data();
 				// so maybe we want to have also another list with the marker qualities
-
+				this_time = pointGetter->last_time;
 
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
 				{
@@ -466,7 +501,6 @@ void UIMUnode::run() {
 				pose = ik->solve(
 						{this_time, markerObservations.first, transformedOris });
 			}
-			last_time = this_time;
 			addEvent("ik"+std::to_string(ij),msg);
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 

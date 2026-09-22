@@ -22,6 +22,8 @@ class PointCalibrator
 
 		};
 		std::vector<TransObs> calibSamples;
+		
+		SimTK::Array_<SimTK::Vec3> mt;
 
 		void recordNumOfSamples(const size_t& numSamples)
 		{
@@ -29,8 +31,7 @@ class PointCalibrator
 			// 
 			for (size_t i=0 ; i<numSamples;i++) 
 			{
-				calibSamples.push_back(pointGetter->get_translations());
-				//some sort of waiting
+				calibSamples.push_back(pointGetter->get_new_data()); // get_data is blocking and always gets new data
 			}
 		}
 
@@ -38,6 +39,33 @@ class PointCalibrator
 		{
 			//oh god TransObs is a pair of lists of vec3, accuracy
 			//and this is supposedly in the order of mmList, i think, from the pointGetter
+			
+			
+			auto numSamples = calibSamples.size();
+			auto numSensors = calibSamples[0].first.size(); 
+			std::vector<size_t> counts(numSensors,numSamples);
+			SimTK::Array_<SimTK::Vec3> _mt(numSensors, SimTK::Vec3(0));
+			for (const auto& isamp:calibSamples)
+			{
+				SimTK::Array_<SimTK::Vec3> actualObservations = isamp.first;
+				SimTK::Array_<SimTK::Real> accuracyOfObservations = isamp.second;
+				for (int32_t i = 0; i < pointGetter->markerList.size(); ++i)  
+				{
+					//claude wants it weighed.. i also hope that vector scalar multiplication are correctly defined
+					if (!std::isnan(accuracyOfObservations[i]))
+						_mt[i]+=actualObservations[i]*accuracyOfObservations[i]; 
+					else // it is a nan
+						counts[i]--;
+				}
+			}
+			for (int32_t i = 0; i < pointGetter->markerList.size(); ++i) 
+			{
+				if (counts[i] ==0) 
+					ROS_ERROR_STREAM("marker " << pointGetter->markerNames[i] << "has zero valid observations!!!");
+				else
+					_mt[i]/=counts[i];
+			}
+			mt = _mt;
 		}
 
 	OpenSim::Model* model;
