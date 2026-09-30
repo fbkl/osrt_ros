@@ -256,6 +256,7 @@ void UIMUnode::calibrate_ik()
 	ROS_INFO_STREAM("Done with calibrate_ik");
 	chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
+	ready();
 	ROS_YE(bar << "calibrate_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
 }
 
