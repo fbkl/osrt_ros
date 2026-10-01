@@ -256,7 +256,6 @@ void UIMUnode::calibrate_ik()
 	ROS_INFO_STREAM("Done with calibrate_ik");
 	chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
-	ready();
 	ROS_YE(bar << "calibrate_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
 }
 
@@ -401,15 +400,20 @@ void UIMUnode::onInit()
 
 	if (usePositionMarkers && pointGetter)
 	{
+		ROS_INFO_STREAM("Setting up PointCalibrator");
 		pclb = new PointCalibrator(model.get(),pointGetter);
 		pointGetter->faster_rate = new ros::Rate(rate*2);
 
 	}
 
 	{
+		ROS_INFO_STREAM("This thing is maybe fishy_");
+
 		std::lock_guard<std::mutex> lock(ik_mtx);
 		recordCalibrationPose(); //Maybe i dont want to do this in the initialization it seems stupid
 	}
+	
+	ROS_INFO_STREAM("onInit define_tasks >>>>>>>");
 
 	define_tasks();
 
@@ -421,8 +425,10 @@ void UIMUnode::onInit()
 	if (!useOrientationMarkers) {
 		ROS_WARN("we are not calibrating for points only yet, so we will run the 'calibration' automatically without any data! in the future we also want to calibrate this, so this warning should not be here for long");
 		calibrate_ik();}
-	// mean delay
-	ROS_DEBUG_STREAM("onInit finished just fine.");
+	
+	ready(); // ready to calibrate i guess...
+	
+	ROS_INFO_STREAM(cyan << "onInit finished just fine.");
 }
 
 void UIMUnode::run() {
