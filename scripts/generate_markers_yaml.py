@@ -11,7 +11,7 @@ import opensim as osim
 import rospy
 
 
-def parse_markers(osim_path):
+def parse_markers(osim_path, inc=False, exc=False, prefix=""):
     """
     Parses the .osim file and returns a dict with the params for the UIMU node
     """
@@ -56,6 +56,13 @@ def parse_markers(osim_path):
         a[name] = [x,y,z]
     for marker in root.iter('Marker'):
         name = marker.get('name')
+        ##for readability we are separating these clauses. 
+        ## 
+        if exc and name.startswith(prefix):
+            continue    
+
+        if inc and not name.startswith(prefix):
+            continue
         frame = marker.find('socket_parent_frame').text.strip()
         body = frame.split('/')[-1]  # strip /bodyset/
         loc = [float(x) for x in marker.find('location').text.split()]
@@ -69,7 +76,24 @@ def parse_markers(osim_path):
     return markers
 
 if __name__ == '__main__':
-    DATA = parse_markers(sys.argv[1])
+    
+    import argparse
+    parser = argparse.ArgumentParser(description="creates the yaml for the ik node")
+    parser.add_argument('model',help='Path of the osim model')
+    parser.add_argument('--prefix', default="",help="Prefix to check against for inclusion/exclusion of markers")
+    parser.add_argument('--inc', '-i', help="Prefix is inclusive, i.e. reads markers only if the include the prefix", action='store_true')
+    parser.add_argument('--exc', '-e', help="Prefix is exclusive, i.e. reads markers only if they exclude the prefix, do not have the prefix", action='store_true')
+    
+    args = parser.parse_args()
+    model = args.model
+    if args.inc and args.exc:
+        raise(Exception("You cannot set both inclusive and exclusive!"))
+
+    if args.inc or args.exc:
+        if not args.prefix:
+            raise(Exception("When including or excluding prefixes, prefix needs to be set"))
+
+    DATA = parse_markers(model,inc=args.inc, exc=args.exc, prefix=args.prefix)
     rospy.init_node("gen_marker_yaml")
     print("# AUTO-GENERATED from .osim — do not edit by hand")
     print("# Regenerate: python scripts/generate_markers_yaml.py model.osim > config/markers.yaml")

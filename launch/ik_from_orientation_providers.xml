@@ -31,6 +31,13 @@
 	         IF YOU DO THE MOBL DANCE ON raquegopal YOU WILL YAW IT 90 DEG WRONG AND
 	         SPEND A DAY BLAMING IMUCalibrator. DO NOT. 🙅
 
+		======================== EISENBUG WARNING =====================
+		Notes on the notes, because yes... I am not sure this is correct either.
+		Sometimes the MOBL model calibrates correctly even without the second 
+		turning. Why? I have no idea. Anyway, if it doesn't work even after all
+		the dancing, well, this is why. It's because the bug isn't solved yet.
+
+
 	     ================== WHY THERE IS A DANCE AT ALL ==================
 
 	     calibration assumes  R_BS = ~R_GoB_def * R_GoS , where R_GoB_def is captured at
@@ -120,6 +127,14 @@
 	<arg name="point_getter_type"           default="tf"/>
 	<arg name="ns"                          default=""/>
 	<arg name="filter_output"             	default="true" />
+	<arg name="marker_tf_frame_prefix"    	default="ar" />
+	<!-- you will forget what this means. this prefix will be prepended to add a marker point to attach vio units to bodies 
+	so that they can also provide translations a la ar. the way we implemented this with AR markers way back then was by reusing markers
+	and not calibrating offsets, which was probably okay to give some idea of translation, but not accurate. this should be better-->
+	<arg name="marker_name_prefix"    	default="vio_" />
+	
+	<!-- marker filter is the -i or -e for including things with the prefix or removing -->
+	<arg name="marker_filter"    	default="-i" />
 	<group ns="$(arg ns)">
 		<node pkg="osrt_ros" type="OnlineIK"     name="$(arg ik_node_name)" machine="$(arg machine)" output="log" if="$(eval arg('machine') != '')">
 			<param name="point_getter_type"         value="$(arg point_getter_type)"/>
@@ -165,13 +180,13 @@
 
 			<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
 			<param name="marker/tf_timeout"         value="0.01" />
-			<param name="marker/tf_frame_prefix"    value="ar" />
+			<param name="marker/tf_frame_prefix"    value="$(arg marker_tf_frame_prefix)" />
 			<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
 			<param name="marker/world_tf_reference" value="opensim_frame" />
 			<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
 			<!--rosparam command="load" file="$(find vicon_rviz_markers)/config/$(arg model)_markers.yaml" param="marker/observation_order" / -->
-			<param command="$(find osrt_ros)/scripts/generate_markers_yaml.py $(arg model_file)" name="marker/observation_order" type="yaml" />
+			<param command="$(find osrt_ros)/scripts/generate_markers_yaml.py $(arg model_file) $(arg marker_filter) --prefix $(arg marker_name_prefix)" name="marker/observation_order" type="yaml" />
 
 
 		</node>
@@ -220,12 +235,12 @@
 
 		<!-- this is how you add vicon marker style stuff rn. I sort of invented a new standard here because of time crunch. Ideally I would use the package from ETH zurick for vicon and use the same standard so I could avoid doing this twice -->
 		<param name="marker/tf_timeout"         value="0.01" />
-		<param name="marker/tf_frame_prefix"    value="ar" />
+		<param name="marker/tf_frame_prefix"    value="$(arg marker_tf_frame_prefix)" />
 		<!--param name="marker/world_tf_reference" value="imu_ref_ori" / -->
 		<param name="marker/world_tf_reference" value="opensim_frame" />
 		<!-- Currently the implementation only allows you to set the center of the AR marker to be exactly the mocap marker, you can either change the osim model or extend this to use points with a coordinate system to allow fixed rigid body translations -->
 
-		<param command="$(find osrt_ros)/scripts/generate_markers_yaml.py $(arg model_file)" name="marker/observation_order" type="yaml" />
+		<param command="$(find osrt_ros)/scripts/generate_markers_yaml.py $(arg model_file) $(arg marker_filter) --prefix $(arg marker_name_prefix)" name="marker/observation_order" type="yaml" />
 
 	</node>
 	<!-- param name="human_model" command="$(find osrt_ros)/human_publisher_mini_node $(arg model_file) 1> /dev/null 2> /dev/null; cat /tmp/converted_model.urdf"/ -->
