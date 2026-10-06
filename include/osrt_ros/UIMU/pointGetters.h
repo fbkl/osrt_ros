@@ -88,6 +88,15 @@ class MyMarker
 class GetPoint
 {
 	public:
+		// ATTENTION EVERYONE: this is now a thread. I didn't want this pattern, it was a bit better before, but the state nonsense was driving me nuts. This is simpler. 
+		// But now, we don't always have a fresh sample
+		//
+		// yup, sad. I know. But this is life, the sample will be acquired at a fixed rate and there are going to be times when a sample gets repeated. We can still implement the old way with a doubling of the frequency here, but rn it is out of scope.
+		mutable std::mutex mu;
+		mutable std::condition_variable cond;
+		ros::Rate* rate = nullptr;
+
+
 		std::vector<std::string> markerNames;
 		ros::NodeHandle nh{"~/marker"};
 		std::unordered_map<std::string, std::string> markerDefList;
@@ -96,10 +105,17 @@ class GetPoint
 		double last_time{0.0};
 		double this_time{-1.0};
 
+		std::atomic<bool> data_stale=true;
+		std::atomic<bool> terminationFlag= false;
+		bool shouldTerminate() {
+			return terminationFlag.load();
+		}
 
-		
+		void shouldTerminate(bool flag) {
+			terminationFlag = flag;
+			cond.notify_one();
+		}
 
-		ros::Rate* faster_rate = nullptr;
 		GetPoint() 
 		{
 
@@ -150,6 +166,45 @@ class GetPoint
 
 		}
 
+		virtual ~GetPoint(){
+			terminationFlag = true;
+			cond.notify_all();
+			if(t.joinable())
+				t.join();
+		}
+
+		std::thread t;
+
+		void startListening()
+		{
+
+			ROS_INFO("Started listening to point getters");
+			auto f = [this] (){
+				try{
+					while(!shouldTerminate()){
+						auto newFrame = get_translations();
+						{std::lock_guard<std::mutex> lock(mu);
+
+							frame = newFrame;
+							data_stale = false;
+							cond.notify_one();}
+						rate->sleep();
+					}
+				} catch(const std::exception& e)
+				{
+					std::cout << "I failed at something >.< " << e.what() << std::endl;
+					terminationFlag = true;
+					cond.notify_one();
+				}
+				ROS_INFO("I did all I had to do boss.");
+			};
+
+			t= std::thread(f);
+
+		}
+
+		TransObs frame;
+
 		virtual TransObs get_translations()
 		{
 			TransObs markerObservations;
@@ -159,32 +214,25 @@ class GetPoint
 			ROS_ERROR("abstract implementation shouldn't be used, will return empty observations!!!");
 			return markerObservations;
 		}
-		
+
 		// Blocking version of get_translations that hopefully gets you new data all the time
 		TransObs get_new_data()
 		{
-			auto tt = get_translations();
-			this_time = last_time;
-			if (!faster_rate) {
-				ROS_ERROR("get_new_data is a synchronous acquisition method, you need to setup the reading rate before using it!");
-				return tt;
-			}
-			int tries = 10;
-			while (this_time >= last_time)
+			std::unique_lock<std::mutex> lock(mu);
+			cond.wait(lock, [this]{ return !data_stale || terminationFlag; });
+			if (terminationFlag) 
 			{
-				ros::spinOnce();
-				faster_rate->sleep();
-				tt = get_translations();
-				tries--;
-				if (tries<0) {
-					ROS_ERROR("tried getting data quite a few times, didn't succeed, you may want to check erm, things");
-					break;
-				}
+				// fck, idk. 
+				// now we are unlocking on terminationFlag, so changing the state of the data_stale doesnt seem right
+				ROS_ERROR("We were asked to terminate");
+				throw(std::runtime_error("not really an error per se. we were asked to terminate... "));
 			}
-			return tt;
+			else data_stale = true;
+			return frame;
 		}
 };
-class GetPointFromSomeTF: public GetPoint // to make this a threaded implementation we need also do run a rated loop here, not going to do that yet, but if you want fast AR, you probably should try it.
+class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the base class, it should still work though.
+					  // to make this a threaded implementation we need also do run a rated loop here, not going to do that yet, but if you want fast AR, you probably should try it.
 {
 	//tf::TransformListener tl;
 	tf2_ros::Buffer tfBuffer;
@@ -244,6 +292,13 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 		ROS_INFO("AR: Finished setting up markers");
 
 	}
+	~GetPointFromSomeTF(){
+		terminationFlag = true;
+		cond.notify_all();
+		if(t.joinable())
+			t.join();
+	}
+
 	TransObs get_translations() override
 	{
 		TransObs markerObservations;
@@ -259,7 +314,7 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 				geometry_msgs::TransformStamped transform;
 				//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
 				transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, query_time, ros::Duration(tf_timeout) ); //
-				//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+																		   //transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
 				latest_marker_tfs[this_marker_tf] = transform;
 				last_time = transform.header.stamp.toSec();
 			}
@@ -284,10 +339,10 @@ class GetPointFromSomeTF: public GetPoint // to make this a threaded implementat
 
 class GetPointFromMarkers:public GetPoint
 {
- 		std::shared_ptr<std::mutex> mtx_;
+	std::shared_ptr<std::mutex> mtx_;
 	ros::Subscriber marker_sub;
 	std::unordered_map<std::string, vicon_bridge::Marker> marker_map;
-	
+
 	TransObs markerObservations;
 
 	chrono::high_resolution_clock::time_point t0 ;
@@ -296,7 +351,7 @@ class GetPointFromMarkers:public GetPoint
 	void _g()
 	{
 
-		
+
 		SimTK::Array_<SimTK::Vec3> actualObservations;
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 
@@ -315,7 +370,7 @@ class GetPointFromMarkers:public GetPoint
 			v.set(1, this_Marker.translation.y*multiplier);
 			v.set(2, this_Marker.translation.z*multiplier);
 			// since the name order is fixed, this order should also be fixed, so it is okay
-			
+
 			if (this_Marker.occluded)
 				actualObservations.push_back(missing_marker);
 			else
@@ -339,17 +394,23 @@ class GetPointFromMarkers:public GetPoint
 			marker_map[marker.marker_name] = marker;
 		}
 		last_time = msg->header.stamp.toSec();
-		
+
 		_g();
 		chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 		double dur_own_code = chrono::duration_cast<chrono::nanoseconds>(t2-t1).count();
 		double dur_between = chrono::duration_cast<chrono::nanoseconds>(t2-t0).count();
 		//ROS_YE(bar << "time between calls duration in ns:"<<magenta<<dur_between<<"\nduration own call"<<dur_own_code<<bar<<"fps:"<<1000000000.0/dur_between<<"fps own:"<<1000000000.0/dur_own_code<<bar <<reset);
 
-			t0 = t2;
-		
+		t0 = t2;
+
 	}
 	public:
+	~GetPointFromMarkers(){
+		terminationFlag = true;
+		cond.notify_all();
+		if(t.joinable())
+			t.join();
+	}
 
 	GetPointFromMarkers() : mtx_(std::make_shared<std::mutex>())
 
@@ -381,14 +442,14 @@ class GetPointFromMarkers:public GetPoint
 			ROS_ERROR_STREAM("AR: Could not setup vicon markers" << e.getMessage());
 		}
 		ROS_INFO("AR: Finished setting up vicon markers");
-		
+
 		_g();
 		marker_sub = nh.subscribe("/vicon/markers", 1,&GetPointFromMarkers::callback, this,ros::TransportHints().tcpNoDelay());
 	}
 	TransObs get_translations() override
 	{
-			std::lock_guard<std::mutex> lock(*mtx_);
-		
+		std::lock_guard<std::mutex> lock(*mtx_);
+
 		return markerObservations;
 	}
 };

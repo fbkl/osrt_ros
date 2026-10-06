@@ -318,8 +318,7 @@ void UIMUnode::recordCalibrationPose()
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 {
 	ROS_INFO_STREAM("Calibration service called!");
-	std::unique_lock<std::mutex> lock(ik_mtx, std::try_to_lock);
-	if (!lock.owns_lock()) { ROS_WARN("busy calibrating, or doing something else that takes a long time, ignored"); return false; }
+	std::unique_lock<std::mutex> lock(ik_mtx);
 
 	recordCalibrationPose();
 	//I need to restart ik again as well
@@ -402,8 +401,8 @@ void UIMUnode::onInit()
 	{
 		ROS_INFO_STREAM("Setting up PointCalibrator");
 		pclb = new PointCalibrator(model.get(),pointGetter);
-		pointGetter->faster_rate = new ros::Rate(rate*2);
-
+		pointGetter->rate = new ros::Rate(rate);
+		pointGetter->startListening();
 	}
 
 	{
@@ -426,7 +425,7 @@ void UIMUnode::onInit()
 		ROS_WARN("we are not calibrating for points only yet, so we will run the 'calibration' automatically without any data! in the future we also want to calibrate this, so this warning should not be here for long");
 		calibrate_ik();}
 	
-	ready(); // ready to calibrate i guess...
+	set_ready(); // ready to calibrate i guess...
 	
 	ROS_INFO_STREAM(cyan << "onInit finished just fine.");
 }
@@ -587,6 +586,7 @@ void UIMUnode::run() {
 		cout << e.what() << endl;
 
 		driver->shouldTerminate(true);
+		pointGetter->shouldTerminate(true);
 	}
 
 	//cout << "Mean delay: " << (double) sumDelayMS / numFrames << " ms" << endl;

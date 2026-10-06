@@ -120,7 +120,7 @@ UIMUInputDriver::UIMUInputDriver(std::vector<std::string> imuObservationOrder, c
 UIMUInputDriver::~UIMUInputDriver() { t.join(); }
 
 void UIMUInputDriver::startListening() {
-	static auto f = [&]() {
+	static auto f = [this]() {
 		try {
 			int i = 0;
 			std::cout << "Rate: " << rate << std::endl ;
