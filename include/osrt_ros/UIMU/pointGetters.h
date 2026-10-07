@@ -307,9 +307,11 @@ class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the ba
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 		// time(0) is the last time, so not exactly what you want if you are thinking the loop takes time, whatever, その時機は時機です. wait, this a really funny double entendre...
 		auto query_time = ros::Time(0); // we probably want to ask for the same time, even though the loop may take some time, right?
-		for (const auto& [this_marker_name, this_marker_tf] : markerDefList)
+		
+		for (const auto& this_marker_name : markerNames)
 		{
 			SimTK::Vec3 v;
+			auto this_marker_tf = markerDefList[this_marker_name];
 			try{
 				geometry_msgs::TransformStamped transform;
 				//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
