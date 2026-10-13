@@ -453,7 +453,7 @@ void UIMUnode::run() {
 		h.frame_id = "subject";
 		std::pair<TransObs,bool> markerObservations;
 		OriData imuData;
-		double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
+		double this_time=-1.0, last_time = -1.1; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
 		SimTK::Array_<SimTK::Rotation> transformedOris;
 		double ori_time, pos_time; // we should keep track of them
 		while (keep_running) {
@@ -512,6 +512,10 @@ void UIMUnode::run() {
 				this_time = (ori_time + pos_time)/2.0;
 
 			}
+
+			// if the time is the same, this thing will crash, so we need to prevent it from happening
+			if (last_time >= this_time) continue;
+
 			//numFrames++;
 
 			// solve ik
