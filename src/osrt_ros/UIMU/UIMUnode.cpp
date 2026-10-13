@@ -514,7 +514,7 @@ void UIMUnode::run() {
 			}
 
 			// if the time is the same, this thing will crash, so we need to prevent it from happening
-			if (last_time == this_time) continue;
+			if (last_time >= this_time) continue; //the greater part shouldnt happen, but somehow it did! o.O
 
 			last_time = this_time;
 			//numFrames++;
