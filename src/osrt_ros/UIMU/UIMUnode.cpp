@@ -458,7 +458,7 @@ void UIMUnode::run() {
 		double ori_time, pos_time; // we should keep track of them
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
-			if (ij>=runs_to_log == 0) {
+			if (ij>=runs_to_log ) {
 				ij = 0; 
 				msg.events = opensimrt_msgs::Events();
 			}
@@ -527,14 +527,14 @@ void UIMUnode::run() {
 
 			InverseKinematics::Output pose;
 			bool ori_new = useOrientationMarkers && !imuData.stale;
-			// if the time is the same, this thing will crash, so we need to prevent it from happening
-			if (last_time >= this_time) continue; //the greater part shouldnt happen, but somehow it did! o.O
-
-			last_time = this_time;
-			bool pos_new = usePositionMarkers && ! markerObservations.second;
+			bool pos_new = usePositionMarkers && markerObservations.second;
 			bool data_is_new = ori_new || pos_new ;
-			if (!data_is_new) continue;
-			
+			if (!data_is_new)
+			{
+				ros::spinOnce();
+				addEvent("afterspinonce"+std::to_string(ij),msg);
+				continue;
+			}
 			// if the time is the same, this thing will crash, so we need to prevent it from happening
 			if (last_time >= this_time) 
 			{
@@ -610,8 +610,6 @@ void UIMUnode::run() {
 			if (ij>=runs_to_log) { // in case we skip a lot, who knows what could happen to ij
 				keep_running = ros::ok();
 				addEvent("afterrosok"+std::to_string(ij),msg);
-				ros::spinOnce();
-				addEvent("afterspinonce"+std::to_string(ij),msg);
 			}
 
 			//ros::spinOnce();
