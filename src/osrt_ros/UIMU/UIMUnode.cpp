@@ -529,10 +529,13 @@ void UIMUnode::run() {
 			bool ori_new = useOrientationMarkers && !imuData.stale;
 			bool pos_new = usePositionMarkers && markerObservations.second;
 			bool data_is_new = ori_new || pos_new ;
+		
+			addEvent("beforspinonce"+std::to_string(ij),msg);
+			ros::spinOnce(); // we spin every loop, if you want to get paranoid and % it again, be my guest, but i think this is fast. anyway, you should be able to measure it.
+			addEvent("afterspinonce"+std::to_string(ij),msg);
+			
 			if (!data_is_new)
 			{
-				ros::spinOnce();
-				addEvent("afterspinonce"+std::to_string(ij),msg);
 				continue;
 			}
 			// if the time is the same, this thing will crash, so we need to prevent it from happening
