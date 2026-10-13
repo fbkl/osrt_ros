@@ -216,10 +216,10 @@ class GetPoint
 		}
 
 		// Blocking version of get_translations that hopefully gets you new data all the time
-		TransObs get_new_data()
+		std::pair<TransObs,bool> get_new_data()
 		{
 			std::unique_lock<std::mutex> lock(mu);
-			cond.wait(lock, [this]{ return !data_stale || terminationFlag; });
+			//cond.wait(lock, [this]{ return !data_stale || terminationFlag; }); // we are going to make this thing non blocking to guarantee ik rate.
 			if (terminationFlag) 
 			{
 				// fck, idk. 
@@ -228,7 +228,7 @@ class GetPoint
 				throw(std::runtime_error("not really an error per se. we were asked to terminate... "));
 			}
 			else data_stale = true;
-			return frame;
+			return std::make_pair(frame,(bool)data_stale);
 		}
 };
 class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the base class, it should still work though.

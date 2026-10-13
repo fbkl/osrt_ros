@@ -385,7 +385,8 @@ void UIMUnode::onInit()
 
 	if (useOrientationMarkers){
 		ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix: [" << tf_frame_prefix << "] and rate: [" << rate <<"]" );
-		driver = new UIMUInputDriver(imuObservationOrder,tf_frame_prefix,rate); //uses tf server
+		driver = new UIMUInputDriver(imuObservationOrder,tf_frame_prefix,rate*2); //uses tf server
+											  //so now we are updating this at double the rate of the main loop because we are no longer waiting for the conditional, 
 		driver->startListening();
 		imuLogger = driver->initializeLogger();
 		initializeLoggers(loggerFileNameIMUs,&imuLogger);
@@ -401,8 +402,18 @@ void UIMUnode::onInit()
 	{
 		ROS_INFO_STREAM("Setting up PointCalibrator");
 		pclb = new PointCalibrator(model.get(),pointGetter);
-		pointGetter->rate = new ros::Rate(rate);
+		pointGetter->rate = new ros::Rate(rate*2); // no longer waiting for the conditional so same problem as above
+		//okay, this TRC logger is stupid. it measures frames and assumes no jitter
+		//also the rate is not the rate that pointgetters will get the frames, but the rate at which they will be logged. and that is defined by the append thing in the run loop. so it is the normal rate
+		//and it is a string, because this is bs and they know it
+		posLogger.addTableMetaData("DataRate",std::to_string(rate));
+		posLogger.addTableMetaData("Units",std::string{"m"});
+
+		posLogger.setColumnLabels(pointGetter->markerNames);
+		initializeLoggers("posLog",&posLogger);
 		pointGetter->startListening();
+
+
 	}
 
 	{
@@ -440,10 +451,11 @@ void UIMUnode::run() {
 		opensimrt_msgs::CommonTimed msg;
 		std_msgs::Header h;
 		h.frame_id = "subject";
-		TransObs markerObservations;
-		std::pair<double, std::vector<OpenSimRT::UIMUData>> imuData;
+		std::pair<TransObs,bool> markerObservations;
+		OriData imuData;
 		double this_time=-1.0; //it should never happen that the time remains as -1.0, the initialization should make sure that either userOri or usePos is always true.
 		SimTK::Array_<SimTK::Rotation> transformedOris;
+		double ori_time, pos_time; // we should keep track of them
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
 			bool have_ik;
@@ -473,8 +485,9 @@ void UIMUnode::run() {
 				// get input from imus
 				ROS_DEBUG_STREAM("Getting frame:");
 				imuData = driver->getFrame();
-				this_time = imuData.first;
-				transformedOris = clb->transform(imuData.second);
+				ori_time = imuData.time;
+				this_time = ori_time;
+				transformedOris = clb->transform(imuData.data);
 				addEvent("got_ori_frame"+std::to_string(ij),msg);
 			}
 			if (usePositionMarkers) //not sure what this does, some interface for VICON .trc files. we are not using it here.
@@ -482,7 +495,8 @@ void UIMUnode::run() {
 				ROS_DEBUG_STREAM("Getting marker frame:");
 				markerObservations = pointGetter->get_new_data();
 				// so maybe we want to have also another list with the marker qualities
-				this_time = pointGetter->last_time;
+				pos_time = pointGetter->last_time;
+				this_time = pos_time;
 
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)
 				{
@@ -490,6 +504,13 @@ void UIMUnode::run() {
 					//ik->markerAssemblyConditions->changeMarkerWeight(someIx,markerObservations.second[i]);
 
 				}
+			}
+
+			if (useOrientationMarkers && usePositionMarkers)
+			{
+				// we have 2 different sources of time now, so we probably should log this somehow
+				this_time = (ori_time + pos_time)/2.0;
+
 			}
 			//numFrames++;
 
@@ -502,10 +523,13 @@ void UIMUnode::run() {
 			//we need to lock this because ik may be calibrating, and if it is deleted when it tries to run it will crash.
 
 			InverseKinematics::Output pose;
+			bool data_is_new = !imuData.stale || markerObservations.second ;
+			if (!data_is_new) continue;
+			else
 			{
 				std::lock_guard<std::mutex> lock(ik_mtx);
 				pose = ik->solve(
-						{this_time, markerObservations.first, transformedOris });
+						{this_time, markerObservations.first.first, transformedOris });
 			}
 			addEvent("ik"+std::to_string(ij),msg);
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
@@ -557,7 +581,12 @@ void UIMUnode::run() {
 			{
 				ROS_YE("Recording!");
 				if(useOrientationMarkers)
-					imuLogger.appendRow(pose.t, driver->frame);//
+					imuLogger.appendRow(ori_time, driver->frame);//
+				if(usePositionMarkers)
+				{
+					posLogger.appendRow(pos_time,markerObservations.first.first );
+
+				}
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
 			if (ij%runs_to_log == 0) {

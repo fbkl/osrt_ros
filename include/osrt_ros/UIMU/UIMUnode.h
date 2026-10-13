@@ -83,6 +83,9 @@ class UIMUnode: Ros::CommonNode
 		double previousTime = 0;
 		double previousDt = 0;
 		OpenSim::TimeSeriesTable imuLogger, imuCalibrationLogger, qRawLogger, qLogger, qDotLogger, qDDotLogger;
+		// marker positions are Vec3, so this one is a different table type to all the
+		// others. one label per MARKER here, not per component.
+		OpenSim::TimeSeriesTable_<SimTK::Vec3> posLogger;
 
 		ros::Publisher time_pub, time_ik_pub;
 		ros::ServiceServer calibrationService;

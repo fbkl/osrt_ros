@@ -31,7 +31,7 @@ class PointCalibrator
 			// 
 			for (size_t i=0 ; i<numSamples;i++) 
 			{
-				calibSamples.push_back(pointGetter->get_new_data()); // get_data is blocking and always gets new data
+				calibSamples.push_back(pointGetter->get_new_data().first); // get_data is blocking and always gets new data
 			}
 		}
 

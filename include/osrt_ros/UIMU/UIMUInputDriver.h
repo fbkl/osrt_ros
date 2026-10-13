@@ -39,6 +39,14 @@
 namespace OpenSimRT {
 template <typename T> class ListenerAdapter;
 
+struct OriData {
+	public:
+bool stale;
+double time;
+std::vector<UIMUData> data;
+};
+
+
 /**
  * @brief xio NGIMU Input driver for streaming data from file.
  */
@@ -81,7 +89,7 @@ class  UIMUInputDriver {
      * values from the table as a std::vector<UIMUData>. (i.e., time and row
      * from table)
      */
-    std::pair<double, IMUDataList> getFrame();
+    OriData getFrame();
 
     /**
      * Get data from file as a std::pair containing the time and all the sensor
