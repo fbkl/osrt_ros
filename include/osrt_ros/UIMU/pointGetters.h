@@ -227,8 +227,9 @@ class GetPoint
 				ROS_ERROR("We were asked to terminate");
 				throw(std::runtime_error("not really an error per se. we were asked to terminate... "));
 			}
-			else data_stale = true;
-			return std::make_pair(frame,(bool)data_stale);
+			
+			bool is_new = !data_stale.exchange(true); //hard to read, but it returns the old value from data stale and set it to true
+			return std::make_pair(frame, is_new);
 		}
 };
 class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the base class, it should still work though.

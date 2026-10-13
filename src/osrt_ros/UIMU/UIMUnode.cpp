@@ -458,6 +458,11 @@ void UIMUnode::run() {
 		double ori_time, pos_time; // we should keep track of them
 		while (keep_running) {
 			//ROS_YE("=======================================================================================================");
+			if (ij>=runs_to_log == 0) {
+				ij = 0; 
+				msg.events = opensimrt_msgs::Events();
+			}
+			ij++;
 			bool have_ik;
 			{
 				std::lock_guard<std::mutex> it_wont_race_i_think_but_locking_is_safer(ik_mtx);
@@ -470,9 +475,6 @@ void UIMUnode::run() {
 				continue; 
 			}
 			
-			if (ij%runs_to_log == 0) {
-				ij = 0;
-			}
 
 			addEvent("run_start"+std::to_string(ij),msg);
 
@@ -513,10 +515,6 @@ void UIMUnode::run() {
 
 			}
 
-			// if the time is the same, this thing will crash, so we need to prevent it from happening
-			if (last_time >= this_time) continue; //the greater part shouldnt happen, but somehow it did! o.O
-
-			last_time = this_time;
 			//numFrames++;
 
 			// solve ik
@@ -528,9 +526,24 @@ void UIMUnode::run() {
 			//we need to lock this because ik may be calibrating, and if it is deleted when it tries to run it will crash.
 
 			InverseKinematics::Output pose;
-			bool data_is_new = !imuData.stale || markerObservations.second ;
+			bool ori_new = useOrientationMarkers && !imuData.stale;
+			// if the time is the same, this thing will crash, so we need to prevent it from happening
+			if (last_time >= this_time) continue; //the greater part shouldnt happen, but somehow it did! o.O
+
+			last_time = this_time;
+			bool pos_new = usePositionMarkers && ! markerObservations.second;
+			bool data_is_new = ori_new || pos_new ;
 			if (!data_is_new) continue;
-			else
+			
+			// if the time is the same, this thing will crash, so we need to prevent it from happening
+			if (last_time >= this_time) 
+			{
+				ROS_WARN("The clock is stale or running back in time. Since we already check for staleness, this means we are getting new data with an equal or older timestamp. This shouldn't happen. If it is happening all the time, you should recheck this code.");
+				continue; //the greater part shouldnt happen, but somehow it did! o.O
+			}
+			last_time = this_time;
+
+
 			{
 				std::lock_guard<std::mutex> lock(ik_mtx);
 				pose = ik->solve(
@@ -594,8 +607,7 @@ void UIMUnode::run() {
 				}
 				qRawLogger.appendRow(pose.t, ~pose.q);
 			}
-			if (ij%runs_to_log == 0) {
-				msg.events = opensimrt_msgs::Events();
+			if (ij>=runs_to_log) { // in case we skip a lot, who knows what could happen to ij
 				keep_running = ros::ok();
 				addEvent("afterrosok"+std::to_string(ij),msg);
 				ros::spinOnce();
@@ -614,7 +626,6 @@ void UIMUnode::run() {
 
 
 			}
-			ij++;
 		}
 	} catch (std::exception& e) {
 		cout << e.what() << endl;

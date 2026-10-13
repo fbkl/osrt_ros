@@ -41,8 +41,8 @@ template <typename T> class ListenerAdapter;
 
 struct OriData {
 	public:
-bool stale;
-double time;
+bool stale = true;
+double time = -1.0;
 std::vector<UIMUData> data;
 };
 
