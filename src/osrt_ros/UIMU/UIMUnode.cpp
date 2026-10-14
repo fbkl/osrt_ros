@@ -461,6 +461,8 @@ void UIMUnode::run() {
 			if (ij>=runs_to_log ) {
 				ij = 0; 
 				msg.events = opensimrt_msgs::Events();
+				keep_running = ros::ok();
+				addEvent("afterrosok"+std::to_string(ij),msg);
 			}
 			ij++;
 			bool have_ik;
@@ -609,10 +611,6 @@ void UIMUnode::run() {
 
 				}
 				qRawLogger.appendRow(pose.t, ~pose.q);
-			}
-			if (ij>=runs_to_log) { // in case we skip a lot, who knows what could happen to ij
-				keep_running = ros::ok();
-				addEvent("afterrosok"+std::to_string(ij),msg);
 			}
 
 			//ros::spinOnce();

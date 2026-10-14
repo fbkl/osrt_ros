@@ -213,34 +213,29 @@ UIMUInputDriver::fromVector(const SimTK::Vector& v) const {
 	return list;
 }
 
-
 UIMUInputDriver::IMUDataList
 UIMUInputDriver::getData() const {
 	std::unique_lock<std::mutex> lock(mu);
-	//cond.wait(lock,	[&]() { return (newRow == true) || terminationFlag.load(); }); // we are no longer waiting, we want to guarantee ik rate
-	newRow = false;
+	//cond.wait(lock,       [&]() { return (newRow == true) || terminationFlag.load(); }); // we are no longer waiting, we want to guarantee ik rate
+	//newRow = false;
+	//we dont care about fresh data during calibration, since we should be getting a bunch of frames anyway, but it seems stupid to have a separate function for this
 	ROS_DEBUG_STREAM("frame inside getData (used for calibration): " << frame);
 	return fromVector((~frame).getAsVector());
 }
 
+
 OpenSimRT::OriData UIMUInputDriver::getFrame() {
-	
+	std::unique_lock<std::mutex> lock(mu);
+
+	bool is_new = newRow.exchange(false);
 	OriData a;
-	auto temp = getFrameAsVector();
-	a.time = temp.first;
-	a.data = fromVector(temp.second);
-	a.stale = !newRow;
+	a.time = time;
+	a.data = fromVector( (~frame).getAsVector());
+	a.stale = !is_new;
 	return a;
 	//return std::make_pair(temp.first, fromVector(temp.second));
 }
 
-std::pair<double, SimTK::Vector> UIMUInputDriver::getFrameAsVector() const {
-	std::unique_lock<std::mutex> lock(mu);
-	//cond.wait(lock,	[&]() { return (newRow == true) || terminationFlag.load(); });
-	newRow = false;
-
-	return std::make_pair(time, (~frame).getAsVector());
-}
 
 OpenSim::TimeSeriesTable UIMUInputDriver::initializeLogger() const {
 	std::vector<std::string> suffixes = {
