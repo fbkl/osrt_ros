@@ -218,11 +218,18 @@ void UIMUnode::calibrate_ik()
 		// here we need to consume mt, calculate the position it should be, vs what it is, and then update the model 
 		ROS_WARN("positional markers calibration is wip,,, is it even running?");
 
-		pclb->computeAvgStaticPose();
 		//model.set() = pclb->model;
 		// i used a make_unique, i think, so it should work by default
 
-		for (int32_t i = 0; i < pointGetter->markerList.size(); ++i) 
+		// If it could not average, mt is empty or stale and reading it is how the
+		// node died before. Keep the model markers where they are and carry on; a
+		// wrong calibration is worse than none.
+		if (!pclb->computeAvgStaticPose())
+		{
+			ROS_ERROR("skipping positional marker calibration, model markers left at their authored positions");
+		}
+		else
+		for (size_t i = 0; i < pclb->mt.size(); ++i) 
 		{
 			SimTK::Vec3 p_G = pclb->mt[i];
 			std::string markername = pointGetter->markerNames[i];
@@ -309,7 +316,8 @@ void UIMUnode::recordCalibrationPose()
 	if (usePositionMarkers)
 	{
 		pclb->calibSamples.clear();
-		pclb->recordNumOfSamples(10);
+		if (!pclb->recordNumOfSamples(10))
+			ROS_ERROR("positional marker calibration did not get the samples it asked for");
 		// erm some logging
 		ROS_WARN("Calibration for Position Markers is not yet logging!");
 		
