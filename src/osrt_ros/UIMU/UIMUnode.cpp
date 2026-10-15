@@ -499,7 +499,7 @@ void UIMUnode::run() {
 				ROS_DEBUG_STREAM("Getting marker frame:");
 				markerObservations = pointGetter->get_new_data();
 				// so maybe we want to have also another list with the marker qualities
-				pos_time = pointGetter->last_time;
+				pos_time = pointGetter->frame_time; // the time of the frame we just got, not of whatever arrived since
 				this_time = pos_time;
 
 				for(int32_t i = 0; i< pointGetter->markerNames.size(); i++)

@@ -21,6 +21,7 @@
 #include "ros/message_traits.h"
 #include "ros/node_handle.h"
 #include "ros/publisher.h"
+#include <atomic>
 #include "ros/rate.h"
 #include "ros/ros.h"
 #include "ros/service_server.h"
@@ -102,8 +103,12 @@ class GetPoint
 		std::unordered_map<std::string, std::string> markerDefList;
 		XmlRpc::XmlRpcValue markerList;
 		std::vector<MyMarker> mmList;
-		double last_time{0.0};
-		double this_time{-1.0};
+		// written by whatever actually receives data (vicon callback / tf lookup),
+		// read by the poller thread and by UIMUnode, hence atomic.
+		std::atomic<double> last_time{0.0};
+		// timestamp of the sample currently sitting in `frame`. this is what the
+		// consumer should use, not last_time, which can run ahead of the snapshot.
+		std::atomic<double> frame_time{-1.0};
 
 		std::atomic<bool> data_stale=true;
 		std::atomic<bool> terminationFlag= false;
@@ -186,8 +191,17 @@ class GetPoint
 						{std::lock_guard<std::mutex> lock(mu);
 
 							frame = newFrame;
-							data_stale = false;
-							cond.notify_one();}
+							// only call it fresh if the source timestamp actually moved.
+							// clearing data_stale unconditionally only meant "the poller
+							// ticked", so every tick between two real samples claimed to be
+							// new data and then tripped the clock-went-backwards warning.
+							const double t = last_time;
+							if (t > frame_time)
+							{
+								frame_time = t;
+								data_stale = false;
+								cond.notify_one();
+							}}
 						rate->sleep();
 					}
 				} catch(const std::exception& e)
