@@ -44,6 +44,7 @@ void UIMUnode::get_params()
 	nh.param<std::string>("logger_filename_ik", loggerFileNameIK, "test_ik");
 	nh.param<std::string>("logger_filename_imus", loggerFileNameIMUs, "test_imus");
 
+	nh.param<int>("calib_samples", num_calib_samples, 10);
 
 	if (!usePositionMarkers && !useOrientationMarkers)
 		ROS_FATAL("You need at least one form of input marker to compute IK!!!");
@@ -263,9 +264,7 @@ void UIMUnode::resetIK()
 {
 	ROS_DEBUG_STREAM("Setting up IK");
 	auto* fresh = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
-	{
-		std::swap(ik, fresh);
-	}
+	std::swap(ik, fresh);
 	delete(fresh);
 
 	qRawLogger = ik->initializeLogger(); // not sure this is correct
@@ -303,7 +302,7 @@ void UIMUnode::clearLogger(TimeSeriesTable &t) //TODO: move it somewhere nice. m
 }
 void UIMUnode::recordCalibrationPose()
 {
-	ROS_YE("Recording calibration pose. NOT USING A DEFAULT POSITION BTW; WE ARE USING THE POSITION IN WHICH THE STATE IS IN (or at least this is what i want)!");
+	ROS_INFO_STREAM("Recording calibration pose. NOT USING A DEFAULT POSITION BTW; WE ARE USING THE POSITION IN WHICH THE STATE IS IN (or at least this is what i want)!");
 
 	if (useOrientationMarkers)
 	{
@@ -311,7 +310,7 @@ void UIMUnode::recordCalibrationPose()
 		clb->setup(actualModelState);
 		clearLogger(imuCalibrationLogger);
 		ROS_INFO_STREAM("After clearing table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
-		clb->recordNumOfSamples(10); //TODO:PARAM!
+		clb->recordNumOfSamples(num_calib_samples); 
 		clb_is_ready = true;
 		imuCalibrationLogger.appendRow(0, fromVectorOfSimTKQuaternionsToARowVector(clb->staticPoseQuaternions)); //if this is the time, maybe we want to add the calibration time here as well. Also, maybe we don't want to clear the calibration, or clear only after saving? TODO: think about this
 		ROS_INFO_STREAM("After appending clb samples to table: Number of rows in table is: " << imuCalibrationLogger.getNumRows());
@@ -319,7 +318,7 @@ void UIMUnode::recordCalibrationPose()
 	if (usePositionMarkers)
 	{
 		pclb->calibSamples.clear();
-		if (!pclb->recordNumOfSamples(10))
+		if (!pclb->recordNumOfSamples(num_calib_samples))
 			ROS_ERROR("positional marker calibration did not get the samples it asked for");
 		// erm some logging
 		ROS_WARN("Calibration for Position Markers is not yet logging!");

@@ -102,6 +102,7 @@ class UIMUnode: Ros::CommonNode
 		//filter parameters
 		double cutoffFreq = 0.0;
 		int splineOrder = 3, memory = 0, delay = 0 ;
+		int num_calib_samples;
 		std::vector<ros::Publisher> plottable_outputs;
 		//dynamic_reconfigure::Server<osrt_ros::UIMUConfig> server;
 		//dynamic_reconfigure::Server<osrt_ros::UIMUConfig>::CallbackType f;
