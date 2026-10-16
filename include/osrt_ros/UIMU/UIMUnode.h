@@ -68,7 +68,7 @@ class UIMUnode: Ros::CommonNode
 {
 	public:
 		UIMUnode(): Ros::CommonNode(false), pointGetter(nullptr), ikfilter(nullptr) //if true debugs
-			    //UIMUnode(): Ros::CommonNode()
+											    //UIMUnode(): Ros::CommonNode()
 	{}
 		std::string imuDirectionAxis;
 		std::string imuBaseBody;
@@ -127,6 +127,7 @@ class UIMUnode: Ros::CommonNode
 		double last_time = -1.1;
 		void run();
 
+		void resetIK();
 		SimTK::State actualModelState; // we have the state belonging to the UIMU node now
 
 };

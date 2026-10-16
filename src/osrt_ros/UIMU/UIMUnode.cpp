@@ -19,6 +19,7 @@ void UIMUnode::get_params()
 	nh.param<bool>("use_position_markers", usePositionMarkers, false);
 	nh.param<bool>("use_orientation_markers", useOrientationMarkers, true);
 
+
 	nh.getParam("imu_observation_order", imuObservationOrder);
 	if (imuObservationOrder.size() == 0 && useOrientationMarkers) 
 	{
@@ -106,11 +107,11 @@ void UIMUnode::reconfigure_callback(osrt_ros::UIMUConfig &config, uint32_t level
 
 }
 void UIMUnode::reconfigure_heading_callback(osrt_ros::headingConfig &config, uint32_t level){
-	
+
 	std::unique_lock<std::mutex> lock(ik_mtx, std::try_to_lock);
 	if (!lock.owns_lock()) { ROS_WARN("busy calibrating, or doing something else that takes a long time, ignored"); return; }
 
-	
+
 	ROS_INFO("Heading Reconfigure request base IMU heading angle: %f", config.base_imu_heading);
 
 	if (clb_is_ready)
@@ -162,14 +163,6 @@ void UIMUnode::calibrate_ik()
 {
 	chrono::high_resolution_clock::time_point t1=chrono::high_resolution_clock::now() ;
 
-
-	// NOTE: this whole block used to appear twice, once unconditionally and once
-	// inside `if (useOrientationMarkers)`. It is idempotent, so the duplicate was
-	// only wasted work -- except that both copies published a TF named
-	// `imu_ref_ori_inv` and the second one published ~R_GoGi1 instead of R_GoGi1,
-	// so the frame you saw in rviz was the inverse of what its name claimed.
-	// The unconditional copy was also a latent segfault: clb is only allocated
-	// when useOrientationMarkers is true.
 	if (useOrientationMarkers)
 	{
 		// Ground-to-ground rotation: maps the IMU/VIO global reference frame Gi
@@ -216,7 +209,11 @@ void UIMUnode::calibrate_ik()
 	if (usePositionMarkers)
 	{
 		// here we need to consume mt, calculate the position it should be, vs what it is, and then update the model 
-		ROS_WARN("positional markers calibration is wip,,, is it even running?");
+		ROS_YE("positional markers calibration is a wip,,, is it even running?");
+
+		// we want to calibrate IK in the position in which it is in right now, but for the 
+		// positional markers, this maybe messes up the model. Anyway, doing it like this
+		SimTK::Vector savedQ = actualModelState.getQ();
 
 		//model.set() = pclb->model;
 		// i used a make_unique, i think, so it should work by default
@@ -229,41 +226,50 @@ void UIMUnode::calibrate_ik()
 			ROS_ERROR("skipping positional marker calibration, model markers left at their authored positions");
 		}
 		else
-		for (size_t i = 0; i < pclb->mt.size(); ++i) 
-		{
-			SimTK::Vec3 p_G = pclb->mt[i];
-			std::string markername = pointGetter->markerNames[i];
-			ROS_INFO_STREAM("marker"<< markername <<" pos we measured: " << p_G);
-			OpenSim::Marker& opensimMarker = model->updMarkerSet().get(markername); 
-			ROS_INFO_STREAM("marker"<< markername <<" pos it had before: " << opensimMarker.get_location());
-			//magically sets the marker is this enough?
-			auto p_F = model->getGround().findStationLocationInAnotherFrame(actualModelState, p_G, opensimMarker.getParentFrame());
-			
-			ROS_INFO_STREAM("marker"<< markername <<" pos it will have now: " << p_F);
+			for (size_t i = 0; i < pclb->mt.size(); ++i) 
+			{
+				SimTK::Vec3 p_G = pclb->mt[i];
+				std::string markername = pointGetter->markerNames[i];
+				ROS_INFO_STREAM("marker"<< markername <<" pos we measured: " << p_G);
+				OpenSim::Marker& opensimMarker = model->updMarkerSet().get(markername); 
+				ROS_INFO_STREAM("marker"<< markername <<" pos it had before: " << opensimMarker.get_location());
+				//magically sets the marker is this enough?
+				auto p_F = model->getGround().findStationLocationInAnotherFrame(actualModelState, p_G, opensimMarker.getParentFrame());
 
-			opensimMarker.set_location(p_F);
-		}
-		ROS_WARN("positional markers calibration is wip,,, we sorta finished bro!");
+				ROS_INFO_STREAM("marker"<< markername <<" pos it will have now: " << p_F);
+
+				opensimMarker.set_location(p_F);
+			}
+		ROS_YE("positional markers calibration is wip,,, we sorta finished bro!");
 		// this is the place, this is the time. the model which is unique needs to be initialized, and it was to be here and it has to be now!
-		actualModelState = model->initSystem();
-		model->realizePosition(actualModelState);
 		// is this fine? i have no clue, claude says so. i will keep this comment here because suspish
+
+		//laut claude we only need to reset the model here, so:
+		actualModelState = model->initSystem();           // fresh default state
+		actualModelState.updQ() = savedQ;                 // put it back
+		model->realizePosition(actualModelState);
 	}
 
-
-	// initialize ik (lower constraint weight and accuracy -> faster tracking)
-	ROS_DEBUG_STREAM("Setting up IK");
-	delete(ik); ik= nullptr; // claude is telling me that if this throws, well, i want it to crash, but fine, we make it nice and deal with it, probably the mature way of coding 
-	ik = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
-	//claude doesnt like me when i initialize the logger here, he wants it on onInit. idk, 
-	qRawLogger = ik->initializeLogger(); // i still think i need to overwrite it though. if i am wrong the machine will complain :)
+	resetIK(); 
 
 	//TODO: publish correct ROS topics
-	output.labels = qRawLogger.getColumnLabels();
 	ROS_INFO_STREAM("Done with calibrate_ik");
 	chrono::high_resolution_clock::time_point t2=chrono::high_resolution_clock::now() ;
 
 	ROS_YE(bar << "calibrate_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
+}
+
+void UIMUnode::resetIK()
+{
+	ROS_DEBUG_STREAM("Setting up IK");
+	auto* fresh = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
+	{
+		std::swap(ik, fresh);
+	}
+	delete(fresh);
+
+	qRawLogger = ik->initializeLogger(); // not sure this is correct
+	output.labels = qRawLogger.getColumnLabels();
 }
 
 SimTK::RowVector UIMUnode::fromVectorOfSimTKQuaternionsToARowVector(std::vector<SimTK::Quaternion> vv)
@@ -297,10 +303,7 @@ void UIMUnode::clearLogger(TimeSeriesTable &t) //TODO: move it somewhere nice. m
 }
 void UIMUnode::recordCalibrationPose()
 {
-	ROS_INFO_STREAM("Recording calibration pose. Assuming you are posing the subject in the default model position!");
-	//so we are going to say here, "hey buddy, the model is in this position and we use this for calibration" and then we pass this state around to anyone who needs it
-	actualModelState = model->initSystem();
-	model->realizePosition(actualModelState);
+	ROS_YE("Recording calibration pose. NOT USING A DEFAULT POSITION BTW; WE ARE USING THE POSITION IN WHICH THE STATE IS IN (or at least this is what i want)!");
 
 	if (useOrientationMarkers)
 	{
@@ -320,7 +323,7 @@ void UIMUnode::recordCalibrationPose()
 			ROS_ERROR("positional marker calibration did not get the samples it asked for");
 		// erm some logging
 		ROS_WARN("Calibration for Position Markers is not yet logging!");
-		
+
 	}
 }	
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
@@ -357,6 +360,8 @@ void UIMUnode::onInit()
 	ROS_DEBUG_STREAM("Setting up model.");
 	model = std::make_unique<OpenSim::Model>(modelFile);
 	OpenSimUtils::removeActuators(*model);
+	actualModelState = model->initSystem();
+	model->realizePosition(actualModelState);
 	if(publish_filtered)
 	{
 		//filter
@@ -411,9 +416,9 @@ void UIMUnode::onInit()
 		ROS_INFO_STREAM("Setting up PointCalibrator");
 		pclb = new PointCalibrator(model.get(),pointGetter);
 		pointGetter->rate = new ros::Rate(rate*2); // no longer waiting for the conditional so same problem as above
-		//okay, this TRC logger is stupid. it measures frames and assumes no jitter
-		//also the rate is not the rate that pointgetters will get the frames, but the rate at which they will be logged. and that is defined by the append thing in the run loop. so it is the normal rate
-		//and it is a string, because this is bs and they know it
+							   //okay, this TRC logger is stupid. it measures frames and assumes no jitter
+							   //also the rate is not the rate that pointgetters will get the frames, but the rate at which they will be logged. and that is defined by the append thing in the run loop. so it is the normal rate
+							   //and it is a string, because this is bs and they know it
 		posLogger.addTableMetaData("DataRate",std::to_string(rate));
 		posLogger.addTableMetaData("Units",std::string{"m"});
 
@@ -424,28 +429,21 @@ void UIMUnode::onInit()
 
 	}
 
-	{
-		ROS_INFO_STREAM("This thing is maybe fishy_");
-
-		std::lock_guard<std::mutex> lock(ik_mtx);
-		recordCalibrationPose(); //Maybe i dont want to do this in the initialization it seems stupid
-	}
-	
 	ROS_INFO_STREAM("onInit define_tasks >>>>>>>");
 
 	define_tasks();
 
-	//ik = new InverseKinematics(model.get(), actualModelState, markerTasks, imuTasks, SimTK::Infinity, 1e-5);
-	//qRawLogger = ik->initializeLogger();
-	initializeLoggers(loggerFileNameIK,&qRawLogger);
-	//delete(ik);
+	{
+		std::lock_guard<std::mutex> lock(ik_mtx);
+		resetIK();
+	}
+	initializeLoggers(loggerFileNameIK,&qRawLogger); 
+
+	// Future frederico and Claude: we are not calibrating IK without any data. it makes no sense.
 	//calibrate_ik();
-	if (!useOrientationMarkers) {
-		ROS_WARN("we are not calibrating for points only yet, so we will run the 'calibration' automatically without any data! in the future we also want to calibrate this, so this warning should not be here for long");
-		calibrate_ik();}
-	
+
 	set_ready(); // ready to calibrate i guess...
-	
+
 	ROS_INFO_STREAM(cyan << "onInit finished just fine.");
 }
 
@@ -484,7 +482,7 @@ void UIMUnode::run() {
 				r->sleep(); 
 				continue; 
 			}
-			
+
 
 			addEvent("run_start"+std::to_string(ij),msg);
 
@@ -539,11 +537,11 @@ void UIMUnode::run() {
 			bool ori_new = useOrientationMarkers && !imuData.stale;
 			bool pos_new = usePositionMarkers && markerObservations.second;
 			bool data_is_new = ori_new || pos_new ;
-		
+
 			addEvent("beforspinonce"+std::to_string(ij),msg);
 			ros::spinOnce(); // we spin every loop, if you want to get paranoid and % it again, be my guest, but i think this is fast. anyway, you should be able to measure it.
 			addEvent("afterspinonce"+std::to_string(ij),msg);
-			
+
 			if (!data_is_new)
 			{
 				continue;
