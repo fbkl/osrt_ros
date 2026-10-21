@@ -260,6 +260,7 @@ void UIMUnode::calibrate_ik()
 	ROS_YE(bar << "calibrate_ik call duration in ms:"<<magenta<<chrono::duration_cast<chrono::milliseconds>(t2-t1).count()<<bar <<reset);
 }
 
+// Attention, the caller needs to hold the mutex
 void UIMUnode::resetIK()
 {
 	ROS_DEBUG_STREAM("Setting up IK");
@@ -543,6 +544,10 @@ void UIMUnode::run() {
 
 			if (!data_is_new)
 			{
+				msg.data = std::vector<double>(); //TODO: we should change this in Osb::update_pose, i think 
+				Osb::update_pose(msg, this_time, actualModelState.getQ()); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
+				pub.publish(msg); 
+				r->sleep();
 				continue;
 			}
 			// if the time is the same, this thing will crash, so we need to prevent it from happening
@@ -558,17 +563,18 @@ void UIMUnode::run() {
 				std::lock_guard<std::mutex> lock(ik_mtx);
 				pose = ik->solve(
 						{this_time, markerObservations.first.first, transformedOris });
+				actualModelState.updQ() = pose.q;
 			}
 			addEvent("ik"+std::to_string(ij),msg);
 			//sumDelayMS += chrono::duration_cast<chrono::milliseconds>(t2 - t1).count();
 
 			//msg.data.push_back(pose.t);
 			msg.data = std::vector<double>(); //TODO: we should change this in Osb::update_pose, i think 
-			Osb::update_pose(msg, pose.t, pose.q); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
+			Osb::update_pose(msg, pose.t, actualModelState.getQ()); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
 
 			/*
 			   if(plottable_outputs.size()>0) // we don't have the labels here, this is stupid
-			   for (const auto& joint_angle:pose.q)
+			   for (const auto& joint_angle:actualModelState.getQ())
 			   {
 			   ROS_DEBUG_STREAM("some joint_angle: "<<joint_angle << " will be sent to topic: " << plottable_outputs[i].getTopic());
 			   std_msgs::Float64 j_msg;
@@ -581,7 +587,7 @@ void UIMUnode::run() {
 			addEvent("afternormal_pub"+std::to_string(ij),msg);
 			if(publish_filtered)
 			{
-				auto ikFiltered = ikfilter->filter({pose.t, pose.q});
+				auto ikFiltered = ikfilter->filter({pose.t, actualModelState.getQ()});
 				auto q = ikFiltered.x;
 				auto qDot = ikFiltered.xDot;
 				auto qDDot = ikFiltered.xDDot;
@@ -615,7 +621,7 @@ void UIMUnode::run() {
 					posLogger.appendRow(pos_time,markerObservations.first.first );
 
 				}
-				qRawLogger.appendRow(pose.t, ~pose.q);
+				qRawLogger.appendRow(pose.t, ~actualModelState.getQ());
 			}
 
 			//ros::spinOnce();
