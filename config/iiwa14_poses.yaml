@@ -1,0 +1,38 @@
+# Named poses for the iiwa14, replayed with scripts/pose_player.py.
+#
+#   rosrun osrt_ros pose_player.py $(rospack find osrt_ros)/config/iiwa14_poses.yaml --pose parked
+#
+# The smartPAD displays joint angles in degrees, so this file is in degrees and
+# pose_player converts. The iiwa is seven revolute joints and the base is welded,
+# so there is no translational coordinate here to get that conversion wrong.
+units: degrees
+
+poses:
+  # Every coordinate at zero: the model's default, and the arm's own zero pose.
+  # Calibrating here is the only case where the old default-pose assumption was
+  # actually true.
+  zero:
+    joint_0_coord_0: 0.0
+    joint_1_coord_0: 0.0
+    joint_2_coord_0: 0.0
+    joint_3_coord_0: 0.0
+    joint_4_coord_0: 0.0
+    joint_5_coord_0: 0.0
+    joint_6_coord_0: 0.0
+
+  # TODO 2026-10-22: the pose the arm was PARKED in when the vicon template
+  # iiwa14_templaterino.vst was built and the markers were stuck on. Read the
+  # seven values off the smartPAD and replace the nulls -- until then this pose
+  # will be rejected by the service.
+  #
+  # This is the pose that matters: the marker body-frame locations have to be
+  # solved against it, because it is the pose the measured marker positions
+  # belong to.
+  parked:
+    joint_0_coord_0: null
+    joint_1_coord_0: null
+    joint_2_coord_0: null
+    joint_3_coord_0: null
+    joint_4_coord_0: null
+    joint_5_coord_0: null
+    joint_6_coord_0: null
