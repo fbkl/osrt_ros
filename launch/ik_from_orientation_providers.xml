@@ -65,7 +65,7 @@
 	         BANNER FIRES  -> that angle IS your dance. rotate the rig by it.
 	         BANNER SILENT -> ✨ NO DANCE ✨. face the markers. calibrate. done.
 
-	     iiwa__ : silent (every default is zero).           NO DANCE.
+	     iiwa14 : silent (every default is zero).           NO DANCE.
 	     raquegopal : warn-list only — it has 17 non-zero defaults but they are all
 	                  LEGS, none ground-attached, so no global yaw. NO DANCE. 🦵
 	     MOBL   : SCREAMS. -90 deg. DANCE. 💃

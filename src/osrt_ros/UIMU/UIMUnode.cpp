@@ -326,6 +326,96 @@ void UIMUnode::recordCalibrationPose()
 
 	}
 }	
+void UIMUnode::buildCoordinateIndex()
+{
+	coordinateIndex.clear();
+	auto names = OpenSimRT::OpenSimUtils::getCoordinateNamesInMultibodyTreeOrder(*model);
+
+	// Multibody-tree order is the q order -- but only while every coordinate is
+	// worth exactly one q. A ball/free joint parameterised by a quaternion costs
+	// four q for three coordinates, and then the two lists stop lining up and
+	// every index below is quietly wrong. Refuse instead of guessing.
+	if ((int)names.size() != actualModelState.getNQ())
+	{
+		ROS_ERROR_STREAM("model has " << names.size() << " coordinates but "
+				<< actualModelState.getNQ() << " generalized coordinates (q). "
+				"Quaternion-parameterised joints? ~set_pose is disabled for this model.");
+		return;
+	}
+
+	for (size_t i = 0; i < names.size(); i++)
+		coordinateIndex[names[i]] = (int)i;
+
+	ROS_DEBUG_STREAM("coordinate index built for " << coordinateIndex.size() << " coordinates");
+}
+
+bool UIMUnode::setModelPoseSrv(opensimrt_msgs::SetModelPoseSrv::Request &req,
+		opensimrt_msgs::SetModelPoseSrv::Response &res)
+{
+	const auto &names = req.pose.name;
+	const auto &positions = req.pose.position;
+
+	if (coordinateIndex.empty())
+	{
+		res.ok = false;
+		res.message = "no coordinate index -- see the error logged at startup";
+		ROS_ERROR_STREAM(res.message);
+		return true;
+	}
+	if (names.size() != positions.size())
+	{
+		res.ok = false;
+		res.message = "name has " + std::to_string(names.size()) + " entries but position has "
+			+ std::to_string(positions.size());
+		ROS_ERROR_STREAM(res.message);
+		return true;
+	}
+	if (names.empty())
+	{
+		res.ok = false;
+		res.message = "empty pose, nothing to set";
+		ROS_WARN_STREAM(res.message);
+		return true;
+	}
+
+	// Validate everything BEFORE touching the state, so a typo in the last name
+	// cannot leave the model half-posed.
+	std::string unknown;
+	for (const auto &n : names)
+		if (coordinateIndex.find(n) == coordinateIndex.end())
+			unknown += (unknown.empty() ? "" : ", ") + n;
+	if (!unknown.empty())
+	{
+		res.ok = false;
+		res.message = "unknown coordinate(s): " + unknown;
+		ROS_ERROR_STREAM(res.message);
+		return true;
+	}
+
+	{
+		// Same lock calibrate_ik() and the run loop take: actualModelState is
+		// shared, and SimTK::State owns heap storage, so a concurrent write tears
+		// the object, not just a double.
+		std::lock_guard<std::mutex> lock(ik_mtx);
+
+		// Only the named coordinates move. Everything else keeps the value it has,
+		// which is what makes a partial pose useful -- set one joint, leave the arm.
+		SimTK::Vector q = actualModelState.getQ();
+		for (size_t i = 0; i < names.size(); i++)
+			q[coordinateIndex.at(names[i])] = positions[i];
+
+		actualModelState.updQ() = q;
+		// Realize here rather than in the run loop: the next thing to read this is
+		// probably calibration, which needs derived positions
+		// (findStationLocationInAnotherFrame), and it is cheap at service rate.
+		model->realizePosition(actualModelState);
+	}
+
+	res.ok = true;
+	ROS_INFO_STREAM("model posed: " << names.size() << " coordinate(s) set");
+	return true;
+}
+
 bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
 {
 	ROS_INFO_STREAM("Calibration service called!");
@@ -362,6 +452,7 @@ void UIMUnode::onInit()
 	OpenSimUtils::removeActuators(*model);
 	actualModelState = model->initSystem();
 	model->realizePosition(actualModelState);
+	buildCoordinateIndex();
 	if(publish_filtered)
 	{
 		//filter
@@ -395,6 +486,7 @@ void UIMUnode::onInit()
 	}
 
 	calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
+	setPoseService = nh.advertiseService("set_pose", &UIMUnode::setModelPoseSrv, this);
 
 	if (useOrientationMarkers){
 		ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix: [" << tf_frame_prefix << "] and rate: [" << rate <<"]" );

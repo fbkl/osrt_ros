@@ -85,7 +85,8 @@ if __name__ == "__main__":
                 new_bodies.append(bb)
         ## now replace it
         if not new_bodies:
-            raise(f"I didn't match any bodies with the list you gave me {arg.bodylist}")
+            raise ValueError(f"I didn't match any bodies with the list you gave me: {args.bodylist}. "
+                             f"The model has: {[b.getName() for b in bodies]}")
         bodies = new_bodies
 
     is_single_marker = args.singlemarker

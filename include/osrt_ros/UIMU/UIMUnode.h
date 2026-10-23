@@ -29,6 +29,7 @@
 #include "std_msgs/Int64.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "opensimrt_msgs/Labels.h"
+#include "opensimrt_msgs/SetModelPoseSrv.h"
 
 #include <SimTKcommon/SmallMatrix.h>
 #include <SimTKcommon/internal/Array.h>
@@ -88,7 +89,7 @@ class UIMUnode: Ros::CommonNode
 		OpenSim::TimeSeriesTable_<SimTK::Vec3> posLogger;
 
 		ros::Publisher time_pub, time_ik_pub;
-		ros::ServiceServer calibrationService;
+		ros::ServiceServer calibrationService, setPoseService;
 		UIMUInputDriver *driver = nullptr;
 		InverseKinematics * ik = nullptr;
 		IMUCalibrator * clb = nullptr;
@@ -123,6 +124,16 @@ class UIMUnode: Ros::CommonNode
 		void clearLogger(TimeSeriesTable &t); //TODO: move it somewhere nice. maybe make loggers a wrapper class
 		void recordCalibrationPose();
 		bool calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+		// Puts the model into a pose we were told about, instead of one we solved
+		// for. Needed whenever the subject's pose at calibration time is known from
+		// the outside -- a robot's encoders, say -- rather than assumed to be the
+		// model's default.
+		bool setModelPoseSrv(opensimrt_msgs::SetModelPoseSrv::Request &req,
+				opensimrt_msgs::SetModelPoseSrv::Response &res);
+		// coordinate name -> index into the State's q. Built once, after the model
+		// is loaded, because getCoordinateNamesInMultibodyTreeOrder is not free.
+		std::unordered_map<std::string, int> coordinateIndex;
+		void buildCoordinateIndex();
 		void onInit();
 
 		double last_time = -1.1;
