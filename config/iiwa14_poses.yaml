@@ -29,10 +29,10 @@ poses:
   # solved against it, because it is the pose the measured marker positions
   # belong to.
   parked:
-    joint_0_coord_0: null
-    joint_1_coord_0: null
-    joint_2_coord_0: null
-    joint_3_coord_0: null
-    joint_4_coord_0: null
-    joint_5_coord_0: null
-    joint_6_coord_0: null
+    joint_0_coord_0: 12.65
+    joint_1_coord_0: 41.59
+    joint_2_coord_0: -7.22
+    joint_3_coord_0: -59.04
+    joint_4_coord_0: 13.51
+    joint_5_coord_0: 97.52
+    joint_6_coord_0: -19.79

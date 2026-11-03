@@ -6,10 +6,12 @@ The point of this is the arm: when the subject's pose is known from the outside
 let calibration assume the model's default pose. Record the pose once, replay it
 whenever you calibrate.
 
-    rosrun osrt_ros pose_player.py poses.yaml --list
-    rosrun osrt_ros pose_player.py poses.yaml --pose parked
-    rosrun osrt_ros pose_player.py poses.yaml --pose parked --service /vio/ik/set_pose
+    rosrun osrt_ros pose_player.py --list
+    rosrun osrt_ros pose_player.py --pose parked
+    rosrun osrt_ros pose_player.py other_poses.yaml --pose parked
     rosrun osrt_ros pose_player.py --set joint_0_coord_0=12.5 --degrees
+
+With no file given it reads DEFAULT_POSE_FILE from this package's config dir.
 
 File format -- `units` is optional and defaults to radians:
 
@@ -24,6 +26,7 @@ keeps the value it already has.
 """
 import argparse
 import math
+import os
 import sys
 
 import rospy
@@ -32,6 +35,20 @@ from sensor_msgs.msg import JointState
 from opensimrt_msgs.srv import SetModelPoseSrv, SetModelPoseSrvRequest
 
 DEFAULT_SERVICE = "/vio/ik/set_pose"
+DEFAULT_POSE_FILE = "config/iiwa14_poses.yaml"
+
+
+def default_pose_file():
+    """This package's own pose file, or None if we cannot find the package."""
+    try:
+        import rospkg
+        return os.path.join(rospkg.RosPack().get_path("osrt_ros"), DEFAULT_POSE_FILE)
+    except Exception:
+        # Not run through ROS, or the package is not on the path. Fall back to
+        # walking up from this script, which works in a plain source checkout.
+        here = os.path.dirname(os.path.abspath(__file__))
+        guess = os.path.join(os.path.dirname(here), DEFAULT_POSE_FILE)
+        return guess if os.path.exists(guess) else None
 
 
 def load_poses(path):
@@ -61,7 +78,8 @@ def to_radians(pose, degrees):
 def main():
     p = argparse.ArgumentParser(prog="pose_player.py", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("file", nargs="?", help="yaml file of named poses")
+    p.add_argument("file", nargs="?",
+                   help=f"yaml file of named poses (default: osrt_ros/{DEFAULT_POSE_FILE})")
     p.add_argument("--pose", "-p", help="which pose in the file to send")
     p.add_argument("--list", "-l", action="store_true", help="list the poses in the file and exit")
     p.add_argument("--set", "-s", nargs="+", metavar="COORD=VALUE", default=[],
@@ -75,28 +93,33 @@ def main():
     pose = {}
     degrees = args.degrees
 
-    if args.file:
-        poses, file_in_degrees = load_poses(args.file)
+    pose_file = args.file or default_pose_file()
+    if args.list and not pose_file:
+        p.error("--list needs a file, and I could not find the package default")
+
+    if pose_file and (args.list or args.pose or not args.set):
+        if not os.path.exists(pose_file):
+            p.error(f"no such pose file: {pose_file}")
+        poses, file_in_degrees = load_poses(pose_file)
         if args.list:
             for name in sorted(poses):
                 print(f"{name}  ({len(poses[name])} coordinates)")
             return 0
         if not args.pose and not args.set:
-            p.error("give --pose NAME (or --list) when passing a file")
+            p.error(f"give --pose NAME (or --list). {pose_file} has: "
+                    f"{', '.join(sorted(poses))}")
         if args.pose:
             if args.pose not in poses:
-                p.error(f"no pose '{args.pose}' in {args.file}. have: {', '.join(sorted(poses))}")
+                p.error(f"no pose '{args.pose}' in {pose_file}. have: {', '.join(sorted(poses))}")
             chosen = poses[args.pose] or {}
             # A null in the yaml means "we have not measured this yet". Say so,
             # instead of letting it become a TypeError three frames down.
             blank = sorted(k for k, v in chosen.items() if v is None)
             if blank:
-                p.error(f"pose '{args.pose}' in {args.file} is not filled in yet: "
+                p.error(f"pose '{args.pose}' in {pose_file} is not filled in yet: "
                         f"{', '.join(blank)}")
             pose.update(chosen)
             degrees = degrees or file_in_degrees
-    elif args.list:
-        p.error("--list needs a file")
 
     for item in args.set:
         if "=" not in item:
