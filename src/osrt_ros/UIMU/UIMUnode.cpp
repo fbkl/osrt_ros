@@ -646,7 +646,7 @@ void UIMUnode::run() {
 			if (last_time >= this_time) 
 			{
 				ROS_WARN_THROTTLE(1,"The clock is stale or running back in time. Since we already check for staleness, this means we are getting new data with an equal or older timestamp. This shouldn't happen. If it is happening all the time, you should recheck this code.");
-				addEvent("staleclock",msg);
+				addEvent("staleclock"+std::to_string(ij),msg);
 				ros::spinOnce();
 				r->sleep();
 				continue; //the greater part shouldnt happen, but somehow it did! o.O
