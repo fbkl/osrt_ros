@@ -645,7 +645,7 @@ void UIMUnode::run() {
 			// if the time is the same, this thing will crash, so we need to prevent it from happening
 			if (last_time >= this_time) 
 			{
-				ROS_WARN("The clock is stale or running back in time. Since we already check for staleness, this means we are getting new data with an equal or older timestamp. This shouldn't happen. If it is happening all the time, you should recheck this code.");
+				ROS_WARN_THROTTLE(1,"The clock is stale or running back in time. Since we already check for staleness, this means we are getting new data with an equal or older timestamp. This shouldn't happen. If it is happening all the time, you should recheck this code.");
 				addEvent("staleclock",msg);
 				ros::spinOnce();
 				r->sleep();
@@ -719,18 +719,12 @@ void UIMUnode::run() {
 				qRawLogger.appendRow(pose.t, ~actualModelState.getQ());
 			}
 
-			//ros::spinOnce();
-			if(true) //this changed. we are no longer using cond.wait() because if we are using 2 different acquisition drivers, then this becomes half the rate plus jitter, now we acquire at double rate and rate limit here! 
-			{
-				r->sleep();
-				addEvent("afterrate"+std::to_string(ij),msg);
-			}
-			{
-				//r->sleep();
-				addEvent("afternorate"+std::to_string(ij),msg);
 
+			//this changed. we are no longer using cond.wait() because if we are using 2 different acquisition drivers, then this becomes half the rate plus jitter, now we acquire at double rate and rate limit here! 
 
-			}
+			r->sleep();
+			addEvent("afterrate"+std::to_string(ij),msg);
+
 		}
 	} catch (std::exception& e) {
 		cout << e.what() << endl;
