@@ -646,6 +646,8 @@ void UIMUnode::run() {
 			if (last_time >= this_time) 
 			{
 				ROS_WARN("The clock is stale or running back in time. Since we already check for staleness, this means we are getting new data with an equal or older timestamp. This shouldn't happen. If it is happening all the time, you should recheck this code.");
+				addEvent("staleclock",msg);
+				ros::spinOnce();
 				continue; //the greater part shouldnt happen, but somehow it did! o.O
 			}
 			last_time = this_time;
@@ -717,7 +719,7 @@ void UIMUnode::run() {
 			}
 
 			//ros::spinOnce();
-			if(false) // this looks like it is free running, but it isn't. it is being gated by driver->getFrame() and we also have the pointGetter doing 2 reads to make sure we don't lose a single sample. 
+			if(true) //this changed. we are no longer using cond.wait() because if we are using 2 different acquisition drivers, then this becomes half the rate plus jitter, now we acquire at double rate and rate limit here! 
 			{
 				r->sleep();
 				addEvent("afterrate"+std::to_string(ij),msg);
