@@ -33,6 +33,7 @@ import rospy
 import yaml
 from sensor_msgs.msg import JointState
 from opensimrt_msgs.srv import SetModelPoseSrv, SetModelPoseSrvRequest
+from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
 
 DEFAULT_SERVICE = "/vio/ik/set_pose"
 DEFAULT_POSE_FILE = "config/iiwa14_poses.yaml"
@@ -86,6 +87,7 @@ def main():
                    help="set coordinates directly, instead of (or on top of) a named pose")
     p.add_argument("--degrees", "-d", action="store_true",
                    help="values are in degrees; overrides the file's own units key")
+    p.add_argument("--serve", action="store_true", help=f"advertises ~pose_it and spins instead of oneshot setting the pose ")
     p.add_argument("--service", default=DEFAULT_SERVICE, help=f"default {DEFAULT_SERVICE}")
     p.add_argument("--timeout", type=float, default=10.0, help="seconds to wait for the service")
     args = p.parse_args()
@@ -132,14 +134,16 @@ def main():
 
     pose = to_radians(pose, degrees)
 
-    rospy.init_node("pose_player", anonymous=True)
-    rospy.loginfo("waiting for %s", args.service)
-    try:
-        rospy.wait_for_service(args.service, timeout=args.timeout)
-    except rospy.ROSException:
-        rospy.logerr("%s did not show up in %.1fs -- is the ik node running?",
-                     args.service, args.timeout)
-        return 1
+    rospy.init_node("pose_player")
+    
+    if not args.serve: # if we are serving, then i want to go straight to spinning and hope for the best
+        rospy.loginfo("waiting for %s", args.service)
+        try:
+            rospy.wait_for_service(args.service, timeout=args.timeout)
+        except rospy.ROSException:
+            rospy.logerr("%s did not show up in %.1fs -- is the ik node running?",
+                         args.service, args.timeout)
+            return 1
 
     req = SetModelPoseSrvRequest()
     req.pose = JointState()
@@ -149,20 +153,37 @@ def main():
         req.pose.name.append(name)
         req.pose.position.append(pose[name])
 
-    try:
+    def this_callback(empty_req): ## we don't use empty req for anything
+        try:
+            rospy.wait_for_service(args.service, timeout=args.timeout)
+        except rospy.ROSException:
+            raise rospy.ServiceException("%s did not show up in %.1fs -- is the ik node running?"%  (args.service, args.timeout))
+
+        req.pose.header.stamp = rospy.Time.now()
+        
         res = rospy.ServiceProxy(args.service, SetModelPoseSrv)(req)
-    except rospy.ServiceException as e:
-        rospy.logerr("service call failed: %s", e)
-        return 1
 
-    if not res.ok:
-        rospy.logerr("refused: %s", res.message)
-        return 1
+        if not res.ok:
+            rospy.logerr("refused: %s", res.message)
+            raise rospy.ServiceException(f"refused: {res.message}")
 
-    rospy.loginfo("posed %d coordinate(s)%s", len(req.pose.name),
-                  " (converted from degrees)" if degrees else "")
-    for n, v in zip(req.pose.name, req.pose.position):
-        rospy.loginfo("  %-20s %+.6f rad  (%+.2f deg)", n, v, math.degrees(v))
+        rospy.loginfo("posed %d coordinate(s)%s", len(req.pose.name),
+                      " (converted from degrees)" if degrees else "")
+        for n, v in zip(req.pose.name, req.pose.position):
+            rospy.loginfo("  %-20s %+.6f rad  (%+.2f deg)", n, v, math.degrees(v))
+        
+        return EmptyResponse()
+
+    if args.serve:
+        rospy.Service("~pose_it", Empty, this_callback)
+    
+        rospy.spin()
+    else:
+        try:
+            this_callback(EmptyRequest())
+        except rospy.ServiceException as e:
+            rospy.logerr("%s", e)
+            return 1
     return 0
 
 
