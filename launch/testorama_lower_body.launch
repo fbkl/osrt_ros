@@ -79,7 +79,7 @@
 		<!-- node pkg="ar_test" type="modifiable_fixed_transform_publisher.py" name="opensimtf_broadcaster1" args="0 0 0  0.707 0 0 0.707 map opensim_frame   " / -->
 		<!-- node pkg="$(arg node_pkg)" type="$(arg node_type)" name="opensimtf_broadcaster2" args="0 0 0  0.5 0.5 0.5 0.5 map opensim_frame   " / -->
 		<!-- node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption3) map opensim_frame   "                                                         most correct so far   /-->
-		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="-1.0 0 0  $(arg ooption4) map opensim_frame   " />
+		<node pkg="tf2_ros" type="static_transform_publisher" name="opensimtf_broadcaster3" args="0.0 0 0  $(arg ooption4) map opensim_frame   " />
 		<group if="$(arg debug)">
 			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster11" args=" 1 1.3 -2   $(arg ioption1 ) $(arg imu_ref_ori_parent) imu_ref_ori1  " output="screen"/>
 			<node pkg="tf2_ros" type="static_transform_publisher" name="imu_ref_broadcaster12" args=" 0 1.3 -2   $(arg ioption2 ) $(arg imu_ref_ori_parent) imu_ref_ori2  " output="screen"/>
