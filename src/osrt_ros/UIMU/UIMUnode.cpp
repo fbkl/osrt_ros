@@ -242,10 +242,8 @@ void UIMUnode::calibrate_ik()
 				opensimMarker.set_location(p_F);
 			}
 		ROS_YE("positional markers calibration is wip,,, we sorta finished bro!");
-		// this is the place, this is the time. the model which is unique needs to be initialized, and it was to be here and it has to be now!
-		// is this fine? i have no clue, claude says so. i will keep this comment here because suspish
 
-		//laut claude we only need to reset the model here, so:
+		//laut claude we only need to reset the model here (this was checked and seems to be fine), so:
 		actualModelState = model->initSystem();           // fresh default state
 		actualModelState.updQ() = savedQ;                 // put it back
 		model->realizePosition(actualModelState);
@@ -428,6 +426,24 @@ bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Re
 	calibrate_ik();
 	return true;
 }
+bool UIMUnode::ikDisableSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+{
+	ROS_INFO_STREAM("Ik Disabling service called!");
+	std::unique_lock<std::mutex> lock(ik_mtx); // do i need a lock? probably idk. 
+	
+	ik_enabled= false;	
+
+	return true;
+}
+bool UIMUnode::ikEnableSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+{
+	ROS_INFO_STREAM("Ik Enabling service called!");
+	std::unique_lock<std::mutex> lock(ik_mtx); // do i need a lock? probably idk. 
+	
+	ik_enabled= true;	
+
+	return true;
+}
 void UIMUnode::onInit()
 {
 	get_params();
@@ -489,6 +505,8 @@ void UIMUnode::onInit()
 
 	calibrationService = nh.advertiseService("calibrate", &UIMUnode::calibrationSrv, this);
 	setPoseService = nh.advertiseService("set_pose", &UIMUnode::setModelPoseSrv, this);
+	ikEnableService = nh.advertiseService("ik_enable", &UIMUnode::ikEnableSrv, this);
+	ikDisableService = nh.advertiseService("ik_disable", &UIMUnode::ikDisableSrv, this);
 
 	if (useOrientationMarkers){
 		ROS_DEBUG_STREAM("Staring UIMUInputDriver with tf_frame_prefix: [" << tf_frame_prefix << "] and rate: [" << rate <<"]" );
@@ -546,7 +564,7 @@ void UIMUnode::run() {
 	ROS_DEBUG_STREAM("started to run");
 	bool keep_running=true;
 	int ij = 0;
-	int runs_to_log= 4;
+	int runs_to_log= 2;
 	try { // main loop
 		opensimrt_msgs::CommonTimed msg;
 		std_msgs::Header h;
@@ -630,7 +648,7 @@ void UIMUnode::run() {
 			InverseKinematics::Output pose;
 			bool ori_new = useOrientationMarkers && !imuData.stale;
 			bool pos_new = usePositionMarkers && markerObservations.second;
-			bool data_is_new = ori_new || pos_new ;
+			bool data_is_new = (ori_new || pos_new ) && ik_enabled;
 
 			addEvent("beforspinonce"+std::to_string(ij),msg);
 			ros::spinOnce(); // we spin every loop, if you want to get paranoid and % it again, be my guest, but i think this is fast. anyway, you should be able to measure it.
@@ -640,6 +658,8 @@ void UIMUnode::run() {
 			{
 				msg.data = std::vector<double>(); //TODO: we should change this in Osb::update_pose, i think 
 				Osb::update_pose(msg, this_time, actualModelState.getQ()); //this is from opensimbridge, another package that shouldnt exist TODO: this is not working properly, it is appending to the end and this creates a huge msg.data... not sure if this was intended, but now that we dont restart msg every frame, this is a problem. 
+				addEvent((ik_enabled? "no_new_data":"ik_disabled")+std::to_string(ij),msg);
+				ROS_WARN_THROTTLE(5,"IK DISABLED (or no new data) publishing model state only, not solving!");
 				pub.publish(msg); 
 				r->sleep();
 				continue;

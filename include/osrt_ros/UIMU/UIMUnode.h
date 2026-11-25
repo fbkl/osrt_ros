@@ -89,7 +89,7 @@ class UIMUnode: Ros::CommonNode
 		OpenSim::TimeSeriesTable_<SimTK::Vec3> posLogger;
 
 		ros::Publisher time_pub, time_ik_pub;
-		ros::ServiceServer calibrationService, setPoseService;
+		ros::ServiceServer calibrationService, setPoseService, ikEnableService, ikDisableService;
 		UIMUInputDriver *driver = nullptr;
 		InverseKinematics * ik = nullptr;
 		IMUCalibrator * clb = nullptr;
@@ -123,6 +123,8 @@ class UIMUnode: Ros::CommonNode
 		SimTK::RowVector fromVectorOfSimTKQuaternionsToARowVector(std::vector<SimTK::Quaternion> vv);
 		void clearLogger(TimeSeriesTable &t); //TODO: move it somewhere nice. maybe make loggers a wrapper class
 		void recordCalibrationPose();
+		bool ikEnableSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+		bool ikDisableSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 		bool calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 		// Puts the model into a pose we were told about, instead of one we solved
 		// for. Needed whenever the subject's pose at calibration time is known from
@@ -142,6 +144,7 @@ class UIMUnode: Ros::CommonNode
 		void resetIK();
 		SimTK::State actualModelState; // we have the state belonging to the UIMU node now
 
+		bool ik_enabled= false;
 };
 
 
