@@ -38,7 +38,18 @@ from std_srvs.srv import Empty, EmptyRequest, EmptyResponse
 DEFAULT_SERVICE = "/vio/ik/set_pose"
 DEFAULT_POSE_FILE = "config/iiwa14_poses.yaml"
 
+#this should be an import since i am using this twice and it is pretty useful
+def resolve(path):
+    """package://pkg/rest -> absolute. Resolved here, in the process that opens
+    the file, so it still works when a node is sent to another machine."""
+    if not path.startswith("package://"):
+        return os.path.expanduser(path)
+    pkg, _, rest = path[len("package://"):].partition("/")
+    import rospkg
+    return os.path.join(rospkg.RosPack().get_path(pkg), rest)
 
+
+##this is sort of bad
 def default_pose_file():
     """This package's own pose file, or None if we cannot find the package."""
     try:
@@ -90,12 +101,12 @@ def main():
     p.add_argument("--serve", action="store_true", help=f"advertises ~pose_it and spins instead of oneshot setting the pose ")
     p.add_argument("--service", default=DEFAULT_SERVICE, help=f"default {DEFAULT_SERVICE}")
     p.add_argument("--timeout", type=float, default=10.0, help="seconds to wait for the service")
-    args = p.parse_args()
+    args = p.parse_args(rospy.myargv()[1:])
 
     pose = {}
     degrees = args.degrees
 
-    pose_file = args.file or default_pose_file()
+    pose_file = resolve(args.file) or default_pose_file()
     if args.list and not pose_file:
         p.error("--list needs a file, and I could not find the package default")
 
