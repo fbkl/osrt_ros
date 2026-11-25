@@ -420,6 +420,8 @@ bool UIMUnode::calibrationSrv(std_srvs::Empty::Request &req, std_srvs::Empty::Re
 {
 	ROS_INFO_STREAM("Calibration service called!");
 	std::unique_lock<std::mutex> lock(ik_mtx);
+	
+	model->realizePosition(actualModelState); // adding realizePositions Until bugs disappear. removing them if something is slow because why do i need this? 
 
 	recordCalibrationPose();
 	//I need to restart ik again as well
