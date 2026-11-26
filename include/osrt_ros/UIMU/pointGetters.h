@@ -62,6 +62,10 @@
 
 #include <cmath> // Required for NAN. also cfloat is the c++26 version
 
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
+
 using namespace std;
 using namespace OpenSim;
 using namespace OpenSimRT;
@@ -89,6 +93,19 @@ class MyMarker
 class GetPoint
 {
 	public:
+	
+		// We need to resolve the coordinate frames for the marker input too, so this is now here!
+		//tf::TransformListener tl;
+		tf2_ros::Buffer tfBuffer;
+		tf2_ros::TransformListener tfListener;
+		std::string world_tf_reference;
+		
+		double tf_timeout;
+		// time(0) is the last time, so not exactly what you want if you are thinking the loop takes time, whatever, その時機は時機です. wait, this a really funny double entendre...
+		ros::Time query_time = ros::Time(0); // we probably want to ask for the same time, even though the loop may take some time, right?
+
+
+
 		// ATTENTION EVERYONE: this is now a thread. I didn't want this pattern, it was a bit better before, but the state nonsense was driving me nuts. This is simpler. 
 		// But now, we don't always have a fresh sample
 		//
@@ -121,10 +138,12 @@ class GetPoint
 			cond.notify_one();
 		}
 
-		GetPoint() 
+		GetPoint(): tfListener(tfBuffer), tf_timeout(0.0)
 		{
 
 			try{	
+				nh.param<double>("tf_timeout",tf_timeout,0.01); // here the timeout was too large. we should probably warn about it
+				nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
 				nh.getParam("observation_order", markerList);
 				if(markerList.valid())
 					ROS_WARN_STREAM("AR markerObservationOrder:" << markerList.toXml());
@@ -249,19 +268,12 @@ class GetPoint
 class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the base class, it should still work though.
 					  // to make this a threaded implementation we need also do run a rated loop here, not going to do that yet, but if you want fast AR, you probably should try it.
 {
-	//tf::TransformListener tl;
-	tf2_ros::Buffer tfBuffer;
-	tf2_ros::TransformListener tfListener;
 	std::string tf_frame_prefix;
-	std::string world_tf_reference;
-	double tf_timeout;
 	std::vector<std::string> tfNames;
 	std::unordered_map<std::string, geometry_msgs::TransformStamped> latest_marker_tfs;
 	public:
-	GetPointFromSomeTF(): tfListener(tfBuffer), tf_timeout(0.0) 
+	GetPointFromSomeTF() 
 	{
-		nh.param<double>("tf_timeout",tf_timeout,0.01); // here the timeout was too large. we should probably warn about it
-		nh.param<std::string>("world_tf_reference",world_tf_reference,"map");
 		nh.param<std::string>("tf_frame_prefix",tf_frame_prefix,"not_set");
 		try{	
 			XmlRpc::XmlRpcValue markerList;
@@ -320,8 +332,6 @@ class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the ba
 
 		SimTK::Array_<SimTK::Vec3> actualObservations;
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
-		// time(0) is the last time, so not exactly what you want if you are thinking the loop takes time, whatever, その時機は時機です. wait, this a really funny double entendre...
-		auto query_time = ros::Time(0); // we probably want to ask for the same time, even though the loop may take some time, right?
 		
 		for (const auto& this_marker_name : markerNames)
 		{
@@ -331,7 +341,8 @@ class GetPointFromSomeTF: public GetPoint // erm, this is threaded now on the ba
 				geometry_msgs::TransformStamped transform;
 				//transform = tfBuffer.lookupTransform( this_marker_tf, world_tf_reference, ros::Time(0), ros::Duration(tf_timeout) ); //
 				transform = tfBuffer.lookupTransform( world_tf_reference, this_marker_tf, query_time, ros::Duration(tf_timeout) ); //
-																		   //transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+				//transform = tfBuffer.lookupTransform( "map", this_marker_tf, ros::Time(0), ros::Duration(tf_timeout) ); //
+				
 				latest_marker_tfs[this_marker_tf] = transform;
 				last_time = transform.header.stamp.toSec();
 			}
@@ -365,7 +376,39 @@ class GetPointFromMarkers:public GetPoint
 	chrono::high_resolution_clock::time_point t0 ;
 	double multiplier=0.001;
 
-	void _g()
+	inline SimTK::Vec3 transform_marker(const vicon_bridge::Marker& m)
+	{
+		tf2::Vector3 p_vicon(m.translation.x * multiplier,
+				m.translation.y * multiplier,
+				m.translation.z * multiplier);
+		tf2::Vector3 p_out = transform_opensim_vicon * p_vicon;
+		return SimTK::Vec3(p_out.x(), p_out.y(), p_out.z());
+	}
+
+	bool have_T = false;
+	std::string vicon_frame = "map";// vicon is in map coordinates, so this should be okay hardcoded. 
+
+	tf2::Transform transform_opensim_vicon;
+
+	bool ensure_transform()
+	{
+		if (have_T) return true;
+		try{
+			auto msg = tfBuffer.lookupTransform( world_tf_reference, vicon_frame, query_time, ros::Duration(tf_timeout) ); 
+			tf2::fromMsg(msg.transform, transform_opensim_vicon);
+			have_T = true;
+
+			ROS_WARN_STREAM("marker points are being read from: " << vicon_frame << " -> " << world_tf_reference);
+
+		} catch (const tf2::TransformException& e) {
+			ROS_WARN_THROTTLE(2, "no %s <- %s yet: %s",
+					world_tf_reference.c_str(), vicon_frame.c_str(), e.what());
+		}
+
+		return have_T;
+	}
+
+	inline void _g()
 	{
 
 
@@ -373,19 +416,22 @@ class GetPointFromMarkers:public GetPoint
 		SimTK::Array_<SimTK::Real> accuracyOfObservations;
 
 		auto missing_marker = SimTK::Vec3(SimTK::NaN);
+
+		if (!ensure_transform()) {
+			ROS_WARN_THROTTLE(1,"Transform is not yet available, points won't be updated!");
+			return; }
+
 		//TODO:REPLACE
 		for (const auto& this_marker_name:markerNames)
 			//			for (const auto& [this_marker_name, this_Marker] : marker_map)
 		{
-			SimTK::Vec3 v;
 
 			// now we find the latest marker in the unordered map
 			const auto& this_Marker = marker_map[this_marker_name];
 
-			//if you are in a hurry just hard code the transform here because we just want it to work now.
-			v.set(0, this_Marker.translation.x*multiplier);
-			v.set(1, this_Marker.translation.y*multiplier);
-			v.set(2, this_Marker.translation.z*multiplier);
+			auto v = transform_marker(this_Marker) ;
+
+
 			// since the name order is fixed, this order should also be fixed, so it is okay
 
 			if (this_Marker.occluded)
